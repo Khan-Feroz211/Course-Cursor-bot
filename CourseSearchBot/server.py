@@ -38,7 +38,14 @@ from core.indexer import Indexer
 from core.search_engine import SearchEngine
 from security.storage import MetadataStore
 from security.audit import AuditLogger, RateLimiter, FileUploadValidator
-from core.answer_generator import AnswerGenerator
+
+# Lazy load AnswerGenerator to avoid import issues
+AnswerGenerator = None
+try:
+    from core.answer_generator import AnswerGenerator
+except Exception as e:
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Could not import AnswerGenerator: {e}. Answer endpoint will be disabled.")
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
@@ -52,7 +59,14 @@ indexer      = Indexer(cfg, store)
 engine       = SearchEngine(cfg, indexer, store)
 audit        = AuditLogger("data/audit.db")
 rate_limiter = RateLimiter(max_requests=100, window_seconds=60)
-answer_gen   = AnswerGenerator(indexer.model)  # Use the same embedding model for answer generation
+
+# Initialize answer generator if available
+answer_gen = None
+if AnswerGenerator:
+    try:
+        answer_gen = AnswerGenerator(indexer.model)
+    except Exception as e:
+        logger.warning(f"Failed to initialize AnswerGenerator: {e}")
 
 app = FastAPI(
     title="Course Search Bot — Enterprise Edition",
@@ -233,6 +247,9 @@ def search(req: SearchRequest, request: Request):
 @app.post("/answer")
 def generate_answer(req: SearchRequest, request: Request):
     """Generate a natural language answer from search results."""
+    if not answer_gen:
+        raise HTTPException(status_code=503, detail="Answer generation feature is not available. Please try the search endpoint instead.")
+    
     client_ip = request.client.host if request.client else "unknown"
     
     if not engine.is_ready:
