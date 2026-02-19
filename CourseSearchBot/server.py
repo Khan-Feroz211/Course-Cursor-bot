@@ -1,13 +1,23 @@
 """
 server.py
-Course Search Bot — Web Server Mode (for Docker / always-alive deployment)
-Runs a FastAPI REST API so the app stays alive as a background service.
+Course Search Bot — Enhanced Web Server Mode (for Docker / always-alive deployment)
+Features:
+  ✓ Audit logging for compliance
+  ✓ Rate limiting against abuse
+  ✓ File upload with validation
+  ✓ Search history & pagination
+  ✓ File management
+  ✓ Advanced filtering
+  ✓ Enhanced error handling
 Access the UI at: http://localhost:8000
 """
 from __future__ import annotations
 import logging
 import os
 import sys
+import json
+from datetime import datetime, timedelta
+from pathlib import Path
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 os.chdir(ROOT)
@@ -16,16 +26,18 @@ sys.path.insert(0, ROOT)
 os.makedirs("course_docs", exist_ok=True)
 os.makedirs("data", exist_ok=True)
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile, Request, Query
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional, List
 import uvicorn
 
 from config.config import AppConfig
 from core.indexer import Indexer
 from core.search_engine import SearchEngine
 from security.storage import MetadataStore
+from security.audit import AuditLogger, RateLimiter, FileUploadValidator
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
@@ -34,14 +46,25 @@ logger = logging.getLogger(__name__)
 cfg = AppConfig.from_yaml("config/settings.yaml")
 cfg.ensure_dirs()
 
-store   = MetadataStore(cfg.storage.db_path)
-indexer = Indexer(cfg, store)
-engine  = SearchEngine(cfg, indexer, store)
+store        = MetadataStore(cfg.storage.db_path)
+indexer      = Indexer(cfg, store)
+engine       = SearchEngine(cfg, indexer, store)
+audit        = AuditLogger("data/audit.db")
+rate_limiter = RateLimiter(max_requests=100, window_seconds=60)
 
 app = FastAPI(
-    title="Course Search Bot",
-    description="AI-powered semantic search for university course PDFs",
-    version="2.0.0",
+    title="Course Search Bot — Enterprise Edition",
+    description="AI-powered semantic search for university course PDFs with audit logging & security",
+    version="2.1.0",
+)
+
+# ── CORS Configuration ────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Restrict in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ── Request/Response models ───────────────────────────────────────────────────
@@ -52,14 +75,52 @@ class IndexRequest(BaseModel):
 class SearchRequest(BaseModel):
     query: str
     top_k: int = 10
+    offset: int = 0
+    file_filter: Optional[str] = None
+    score_threshold: float = 0.2
 
 class SearchResultItem(BaseModel):
     file: str
     page: int
     context: str
     score: float
+    timestamp: Optional[str] = None
+
+class ErrorResponse(BaseModel):
+    error: str
+    detail: str
+    timestamp: str
+    request_id: Optional[str] = None
+
+class FileInfo(BaseModel):
+    filename: str
+    size: int
+    chunks_indexed: int
+    last_indexed: str
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Apply rate limiting to all requests."""
+    client_ip = request.client.host if request.client else "unknown"
+    
+    if not rate_limiter.is_allowed(client_ip):
+        audit.log(
+            action="RATE_LIMIT_EXCEEDED",
+            status="BLOCKED",
+            ip_address=client_ip,
+            user_agent=request.headers.get("user-agent"),
+            risk_level="WARNING",
+        )
+        return JSONResponse(
+            status_code=429,
+            content={"error": "Rate limited", "detail": "Too many requests. Please try again later."},
+        )
+    
+    response = await call_next(request)
+    return response
+
 
 @app.get("/health")
 def health():
@@ -68,29 +129,266 @@ def health():
 
 
 @app.post("/index")
-def build_index(req: IndexRequest):
-    """Build or reload the document index."""
+def build_index(req: IndexRequest, request: Request):
+    """Build or reload the document index with audit logging."""
+    client_ip = request.client.host if request.client else "unknown"
+    
     try:
         engine.load_or_build(req.folder)
         count = store.count_chunks()
-        return {"status": "success", "chunks_indexed": count}
+        
+        audit.log(
+            action="INDEX_REBUILT",
+            status="SUCCESS",
+            resource=req.folder,
+            ip_address=client_ip,
+            user_agent=request.headers.get("user-agent"),
+            details={"chunks_indexed": count},
+        )
+        
+        return {"status": "success", "chunks_indexed": count, "timestamp": datetime.utcnow().isoformat()}
     except Exception as e:
         logger.error(f"Index error: {e}")
+        audit.log(
+            action="INDEX_FAILED",
+            status="ERROR",
+            resource=req.folder,
+            ip_address=client_ip,
+            details={"error": str(e)},
+            risk_level="WARNING",
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/search", response_model=list[SearchResultItem])
-def search(req: SearchRequest):
-    """Run a semantic search query."""
+@app.post("/search")
+def search(req: SearchRequest, request: Request):
+    """Run a semantic search query with pagination and filtering."""
+    client_ip = request.client.host if request.client else "unknown"
+    
     if not engine.is_ready:
+        audit.log(
+            action="SEARCH_FAILED",
+            status="INDEX_NOT_READY",
+            ip_address=client_ip,
+            risk_level="INFO",
+        )
         raise HTTPException(status_code=400, detail="Index not loaded. Call /index first.")
+    
     try:
-        results = engine.search(req.query)
-        return [r.to_dict() for r in results]
+        results = engine.search(req.query, top_k=req.top_k)
+        
+        # Apply file filter if specified
+        if req.file_filter:
+            results = [r for r in results if req.file_filter.lower() in r.file.lower()]
+        
+        # Apply score threshold filter
+        results = [r for r in results if r.score >= req.score_threshold]
+        
+        # Pagination
+        total = len(results)
+        start = req.offset
+        end = start + req.top_k
+        paginated = results[start:end]
+        
+        audit.log(
+            action="SEARCH_EXECUTED",
+            status="SUCCESS",
+            resource=req.query[:100],
+            ip_address=client_ip,
+            user_agent=request.headers.get("user-agent"),
+            details={"results_found": len(paginated), "total": total},
+        )
+        
+        return {
+            "results": [r.to_dict() for r in paginated],
+            "total": total,
+            "offset": start,
+            "limit": req.top_k,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
     except ValueError as e:
+        audit.log(
+            action="SEARCH_VALIDATION_ERROR",
+            status="ERROR",
+            resource=req.query[:100],
+            ip_address=client_ip,
+            details={"error": str(e)},
+            risk_level="INFO",
+        )
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         logger.error(f"Search error: {e}")
+        audit.log(
+            action="SEARCH_ERROR",
+            status="ERROR",
+            ip_address=client_ip,
+            details={"error": str(e)},
+            risk_level="WARNING",
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...), request: Request = None):
+    """Upload and validate a PDF file for indexing."""
+    client_ip = request.client.host if request.client else "unknown"
+    
+    try:
+        # Read file content
+        content = await file.read()
+        
+        # Validate file
+        is_valid, message = FileUploadValidator.validate_upload(file.filename, content)
+        
+        if not is_valid:
+            audit.log(
+                action="FILE_UPLOAD_REJECTED",
+                status="REJECTED",
+                resource=file.filename,
+                ip_address=client_ip,
+                details={"reason": message},
+                risk_level="WARNING",
+            )
+            raise HTTPException(status_code=400, detail=message)
+        
+        # Sanitize and save
+        safe_name = FileUploadValidator.sanitize_filename(file.filename)
+        dest_path = Path("course_docs") / safe_name
+        
+        with open(dest_path, "wb") as f:
+            f.write(content)
+        
+        audit.log(
+            action="FILE_UPLOADED",
+            status="SUCCESS",
+            resource=safe_name,
+            ip_address=client_ip,
+            user_agent=request.headers.get("user-agent"),
+            details={"size_bytes": len(content)},
+        )
+        
+        return {
+            "status": "success",
+            "filename": safe_name,
+            "size_bytes": len(content),
+            "message": "File uploaded successfully. Run /index to add to search index.",
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Upload error: {e}")
+        audit.log(
+            action="FILE_UPLOAD_ERROR",
+            status="ERROR",
+            resource=file.filename or "unknown",
+            ip_address=client_ip,
+            details={"error": str(e)},
+            risk_level="WARNING",
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/files")
+def list_files(request: Request):
+    """List all indexed PDF files."""
+    client_ip = request.client.host if request.client else "unknown"
+    
+    try:
+        files = []
+        course_docs = Path("course_docs")
+        if course_docs.exists():
+            for f in course_docs.glob("*.pdf"):
+                files.append({
+                    "filename": f.name,
+                    "size_bytes": f.stat().st_size,
+                    "last_modified": datetime.fromtimestamp(f.stat().st_mtime).isoformat(),
+                })
+        
+        audit.log(
+            action="FILES_LISTED",
+            status="SUCCESS",
+            ip_address=client_ip,
+            details={"count": len(files)},
+        )
+        
+        return {
+            "files": files,
+            "total": len(files),
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"List files error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/files/{filename}")
+def delete_file(filename: str, request: Request):
+    """Delete a file from the course documents folder."""
+    client_ip = request.client.host if request.client else "unknown"
+    
+    try:
+        # Sanitize filename to prevent directory traversal
+        safe_name = FileUploadValidator.sanitize_filename(filename)
+        file_path = Path("course_docs") / safe_name
+        
+        # Verify file is in safe directory
+        file_path.resolve().relative_to(Path("course_docs").resolve())
+        
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        file_path.unlink()
+        
+        audit.log(
+            action="FILE_DELETED",
+            status="SUCCESS",
+            resource=safe_name,
+            ip_address=client_ip,
+            user_agent=request.headers.get("user-agent"),
+            details={"message": "File deleted. Run /index to update search index"},
+        )
+        
+        return {
+            "status": "success",
+            "message": "File deleted. Run /index to update search index.",
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Delete file error: {e}")
+        audit.log(
+            action="FILE_DELETE_ERROR",
+            status="ERROR",
+            resource=filename,
+            ip_address=client_ip,
+            details={"error": str(e)},
+            risk_level="WARNING",
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/audit-logs")
+def get_audit_logs(
+    hours: int = Query(24, ge=1),
+    action_filter: Optional[str] = None,
+    risk_filter: Optional[str] = None,
+    request: Request = None,
+):
+    """Get audit logs (admin endpoint)."""
+    client_ip = request.client.host if request.client else "unknown"
+    
+    try:
+        logs = audit.get_logs(action_filter=action_filter, risk_filter=risk_filter, hours=hours)
+        return {
+            "logs": logs,
+            "total": len(logs),
+            "filters": {
+                "hours": hours,
+                "action": action_filter,
+                "risk_level": risk_filter,
+            },
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Audit logs error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -101,83 +399,519 @@ def status():
         "index_ready": engine.is_ready,
         "chunks_count": store.count_chunks(),
         "model": cfg.model.name,
-        "version": "2.0.0",
+        "version": "2.1.0",
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
 
 @app.get("/", response_class=HTMLResponse)
 def root():
-    """Simple web UI — accessible from any browser."""
+    """Enhanced web UI with file management, history, pagination, and filters."""
     return """
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Course Search Bot</title>
+<title>Course Search Bot — Enterprise</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0f1117; color: #e8eaf0; font-family: 'Segoe UI', sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; }
-  h1 { font-size: 2rem; margin-bottom: 8px; color: #4f8ef7; }
-  p.sub { color: #8890a8; margin-bottom: 32px; }
-  .card { background: #1a1d27; border: 1px solid #2a2d3e; border-radius: 12px; padding: 24px; width: 100%; max-width: 700px; margin-bottom: 20px; }
-  input, button { width: 100%; padding: 12px 16px; border-radius: 8px; border: none; font-size: 1rem; margin-top: 10px; }
-  input { background: #0f1117; color: #e8eaf0; border: 1px solid #2a2d3e; }
-  button { background: #4f8ef7; color: white; cursor: pointer; font-weight: 600; transition: background .2s; }
-  button:hover { background: #7c5cbf; }
-  #results { white-space: pre-wrap; font-family: monospace; font-size: 0.85rem; color: #e8eaf0; max-height: 400px; overflow-y: auto; }
-  .badge { display: inline-block; background: #7c5cbf; color: white; padding: 3px 10px; border-radius: 20px; font-size: 0.8rem; margin-top: 8px; }
-  label { color: #8890a8; font-size: 0.85rem; }
+  body { 
+    background: linear-gradient(135deg, #0f1117 0%, #1a1d27 100%); 
+    color: #e8eaf0; 
+    font-family: 'Segoe UI', sans-serif; 
+    min-height: 100vh; 
+    padding: 20px;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 40px; }
+  h1 { font-size: 2.5rem; margin-bottom: 8px; color: #4f8ef7; text-shadow: 0 0 20px rgba(79, 142, 247, 0.3); }
+  .sub { color: #8890a8; font-size: 1.1rem; margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-bottom: 30px; }
+  .card { 
+    background: #1a1d27; 
+    border: 1px solid #2a2d3e; 
+    border-radius: 12px; 
+    padding: 24px; 
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(79, 142, 247, 0.2); }
+  .card h2 { color: #4f8ef7; margin-bottom: 16px; font-size: 1.2rem; }
+  input, textarea, select { 
+    width: 100%; 
+    padding: 12px 16px; 
+    border-radius: 8px; 
+    border: 1px solid #2a2d3e; 
+    background: #0f1117; 
+    color: #e8eaf0; 
+    font-size: 1rem; 
+    margin-top: 10px;
+    font-family: inherit;
+  }
+  input:focus, textarea:focus, select:focus { 
+    outline: none; 
+    border-color: #4f8ef7; 
+    box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.1);
+  }
+  button { 
+    width: 100%; 
+    padding: 12px 16px; 
+    border-radius: 8px; 
+    border: none; 
+    font-size: 1rem; 
+    margin-top: 10px;
+    cursor: pointer; 
+    font-weight: 600; 
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .btn-primary { background: #4f8ef7; color: white; }
+  .btn-primary:hover { background: #6fa5ff; transform: translateY(-2px); }
+  .btn-success { background: #3ecf8e; color: #000; }
+  .btn-success:hover { background: #5ce5a0; }
+  .btn-danger { background: #e05252; color: white; }
+  .btn-danger:hover { background: #f07070; }
+  .btn-secondary { background: #2a2d3e; color: #e8eaf0; }
+  .btn-secondary:hover { background: #3a3d4e; }
+  #results { 
+    white-space: pre-wrap; 
+    font-family: 'Consolas', monospace; 
+    font-size: 0.85rem; 
+    color: #e8eaf0; 
+    max-height: 500px; 
+    overflow-y: auto; 
+    background: #0f1117;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #2a2d3e;
+    line-height: 1.5;
+  }
+  #files-list, #history-list { 
+    max-height: 300px; 
+    overflow-y: auto;
+    background: #0f1117;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #2a2d3e;
+  }
+  .file-item, .history-item { 
+    padding: 12px; 
+    background: #0f1117; 
+    border-bottom: 1px solid #2a2d3e;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .file-item:last-child, .history-item:last-child { border-bottom: none; }
+  .badge { 
+    display: inline-block; 
+    background: #7c5cbf; 
+    color: white; 
+    padding: 4px 12px; 
+    border-radius: 20px; 
+    font-size: 0.75rem; 
+    margin-left: 10px;
+  }
+  .badge.success { background: #3ecf8e; color: #000; }
+  .badge.warning { background: #f0a500; color: #000; }
+  .badge.error { background: #e05252; color: white; }
+  label { color: #8890a8; font-size: 0.85rem; display: block; margin-top: 12px; }
+  .tabs { 
+    display: flex; 
+    gap: 10px; 
+    margin-bottom: 20px; 
+    border-bottom: 2px solid #2a2d3e;
+  }
+  .tab-btn { 
+    background: none; 
+    border: none; 
+    color: #8890a8; 
+    cursor: pointer; 
+    padding: 12px 20px; 
+    font-weight: 600;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab-btn.active { color: #4f8ef7; border-bottom-color: #4f8ef7; }
+  .tab-btn:hover { color: #4f8ef7; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pagination { 
+    display: flex; 
+    gap: 5px; 
+    margin-top: 15px; 
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .pagination button { width: auto; padding: 8px 12px; margin: 0; }
+  .status-msg { 
+    padding: 12px; 
+    border-radius: 8px; 
+    margin-top: 10px;
+    font-size: 0.9rem;
+  }
+  .status-msg.success { background: #1a3a2a; color: #3ecf8e; border: 1px solid #3ecf8e; }
+  .status-msg.error { background: #3a1a1a; color: #e05252; border: 1px solid #e05252; }
+  .status-msg.info { background: #1a2a3a; color: #4f8ef7; border: 1px solid #4f8ef7; }
 </style>
 </head>
 <body>
-<h1>🎓 Course Search Bot</h1>
-<p class="sub">AI-powered semantic search for your course documents</p>
+<div class="container">
+  <header>
+    <h1>🎓 Course Search Bot</h1>
+    <p class="sub">AI-powered semantic search for university course documents</p>
+    <div id="status-bar" style="color: #3ecf8e; font-size: 0.9rem;"></div>
+  </header>
 
-<div class="card">
-  <label>Step 1 — Build Index</label>
-  <button onclick="buildIndex()">⚙ Build / Reload Index</button>
-  <div id="index_status" style="margin-top:10px;color:#3ecf8e;"></div>
-</div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('search')">🔍 Search</button>
+    <button class="tab-btn" onclick="switchTab('files')">📁 Files</button>
+    <button class="tab-btn" onclick="switchTab('history')">📋 History</button>
+    <button class="tab-btn" onclick="switchTab('settings')">⚙ Settings</button>
+  </div>
 
-<div class="card">
-  <label>Step 2 — Search</label>
-  <input id="query" type="text" placeholder="e.g. what is photosynthesis?" onkeydown="if(event.key==='Enter')search()"/>
-  <button onclick="search()">🔍 Search</button>
-</div>
+  <!-- SEARCH TAB -->
+  <div id="search" class="tab-content active">
+    <div class="grid">
+      <div class="card">
+        <h2>Build Index</h2>
+        <p style="color: #8890a8; font-size: 0.9rem; margin-bottom: 10px;">Index your PDF documents for semantic search</p>
+        <button class="btn-primary" onclick="buildIndex()">⚙ Build / Reload Index</button>
+        <div id="index_status"></div>
+      </div>
 
-<div class="card">
-  <label>Results</label>
-  <div id="results" style="margin-top:12px;color:#8890a8;">Run a search above…</div>
+      <div class="card">
+        <h2>Search Documents</h2>
+        <input id="query" type="text" placeholder="e.g., What is photosynthesis?" onkeydown="if(event.key==='Enter')search()"/>
+        <div class="filter-row">
+          <div>
+            <label>Filter by file:</label>
+            <input id="file-filter" type="text" placeholder="e.g., biology.pdf" />
+          </div>
+          <div>
+            <label>Min score:</label>
+            <input id="score-threshold" type="number" min="0" max="1" step="0.1" value="0.2" />
+          </div>
+        </div>
+        <button class="btn-primary" onclick="search()">🔍 Search</button>
+        <div id="search_status"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Results</h2>
+      <div id="results" style="margin-top: 12px; color: #8890a8;">Run a search above…</div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+
+  <!-- FILES TAB -->
+  <div id="files" class="tab-content">
+    <div class="grid">
+      <div class="card">
+        <h2>Upload PDF</h2>
+        <p style="color: #8890a8; font-size: 0.9rem; margin-bottom: 10px;">Max 50MB, PDF only. Validated automatically.</p>
+        <input type="file" id="file-upload" accept=".pdf" />
+        <button class="btn-primary" onclick="uploadFile()">📤 Upload</button>
+        <div id="upload_status"></div>
+      </div>
+
+      <div class="card">
+        <h2>Indexed Files</h2>
+        <button class="btn-secondary" onclick="listFiles()">📂 Refresh List</button>
+        <div id="files-list" style="margin-top: 12px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div id="history" class="tab-content">
+    <div class="card">
+      <h2>Search History</h2>
+      <p style="color: #8890a8; font-size: 0.9rem; margin-bottom: 10px;">Your recent searches (stored locally)</p>
+      <button class="btn-secondary" onclick="clearHistory()">🗑️ Clear History</button>
+      <div id="history-list" style="margin-top: 12px;"></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div id="settings" class="tab-content">
+    <div class="grid">
+      <div class="card">
+        <h2>System Status</h2>
+        <div id="system-status" style="color: #e8eaf0; font-size: 0.9rem; line-height: 1.8;">
+          Loading…
+        </div>
+        <button class="btn-secondary" onclick="getSystemStatus()">🔄 Refresh</button>
+      </div>
+
+      <div class="card">
+        <h2>Security & Audit</h2>
+        <p style="color: #8890a8; font-size: 0.9rem; margin-bottom: 10px;">Advanced features</p>
+        <button class="btn-secondary" onclick="viewAuditLogs()">📊 View Audit Logs</button>
+        <div id="audit-status"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
+const STORAGE_KEY = 'course_bot_history';
+let currentPage = 0;
+let lastResults = [];
+let lastQuery = '';
+
+function switchTab(tab) {
+  // Hide all tabs
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  // Show selected tab
+  document.getElementById(tab).classList.add('active');
+  event.target.classList.add('active');
+  
+  if (tab === 'history') loadHistory();
+  if (tab === 'files') listFiles();
+  if (tab === 'settings') getSystemStatus();
+}
+
 async function buildIndex() {
-  document.getElementById('index_status').textContent = 'Building… please wait.';
-  const r = await fetch('/index', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({folder:'course_docs'})});
-  const d = await r.json();
-  document.getElementById('index_status').textContent = r.ok
-    ? '✅ Ready — ' + d.chunks_indexed + ' chunks indexed'
-    : '❌ Error: ' + d.detail;
+  document.getElementById('index_status').innerHTML = '<div class="status-msg info">⏳ Building… please wait…</div>';
+  try {
+    const r = await fetch('/index', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({folder: 'course_docs'})
+    });
+    const d = await r.json();
+    if (r.ok) {
+      document.getElementById('index_status').innerHTML = `<div class="status-msg success">✅ Ready — ${d.chunks_indexed} chunks indexed</div>`;
+      addToHistory(`Indexed ${d.chunks_indexed} chunks`);
+    } else {
+      document.getElementById('index_status').innerHTML = `<div class="status-msg error">❌ Error: ${d.detail}</div>`;
+    }
+  } catch (e) {
+    document.getElementById('index_status').innerHTML = `<div class="status-msg error">❌ Error: ${e.message}</div>`;
+  }
 }
 
 async function search() {
   const q = document.getElementById('query').value.trim();
-  if (!q) return;
-  document.getElementById('results').textContent = 'Searching…';
-  const r = await fetch('/search', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({query:q})});
-  const data = await r.json();
-  if (!r.ok) { document.getElementById('results').textContent = 'Error: ' + data.detail; return; }
-  if (!data.length) { document.getElementById('results').textContent = 'No results found.'; return; }
-  document.getElementById('results').textContent = data.map((x,i) =>
-    `[${i+1}] ${x.file} — Page ${x.page}  (Score: ${(x.score*100).toFixed(0)}%)\n${x.context}\n${'─'.repeat(60)}`
-  ).join('\n\n');
+  if (!q) { alert('Enter a search query'); return; }
+  
+  lastQuery = q;
+  currentPage = 0;
+  document.getElementById('results').textContent = '⏳ Searching…';
+  
+  try {
+    const fileFilter = document.getElementById('file-filter').value.trim();
+    const scoreThreshold = parseFloat(document.getElementById('score-threshold').value) || 0.2;
+    
+    const r = await fetch('/search', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        query: q,
+        top_k: 10,
+        offset: 0,
+        file_filter: fileFilter || null,
+        score_threshold: scoreThreshold
+      })
+    });
+    
+    const data = await r.json();
+    if (!r.ok) {
+      document.getElementById('results').innerHTML = `<span style="color: #e05252;">❌ ${data.detail}</span>`;
+      return;
+    }
+    
+    lastResults = data.results;
+    displayResults(data);
+    addToHistory(q, data.results.length);
+  } catch (e) {
+    document.getElementById('results').innerHTML = `<span style="color: #e05252;">❌ Error: ${e.message}</span>`;
+  }
 }
+
+function displayResults(data) {
+  const results = data.results;
+  if (!results || results.length === 0) {
+    document.getElementById('results').innerHTML = '<span style="color: #8890a8;">No results found.</span>';
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+  
+  const resultsHTML = results.map((x, i) => {
+    const scoreColor = x.score > 0.7 ? '#3ecf8e' : x.score > 0.4 ? '#f0a500' : '#8890a8';
+    return `<div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #2a2d3e;">
+      <strong style="color: #4f8ef7;">📄 ${x.file}</strong> — Page ${x.page} <span class="badge" style="background: ${scoreColor};">${(x.score * 100).toFixed(0)}%</span>
+      <div style="margin-top: 8px; color: #e8eaf0; font-size: 0.9rem; line-height: 1.5;">${x.context}</div>
+    </div>`;
+  }).join('');
+  
+  document.getElementById('results').innerHTML = resultsHTML;
+  
+  // Pagination
+  const paginationHTML = `
+    <button class="btn-secondary" onclick="previousPage()" ${data.offset === 0 ? 'disabled' : ''}>← Prev</button>
+    <span style="padding: 8px 12px; color: #8890a8;">Page ${Math.floor(data.offset / data.limit) + 1}</span>
+    <button class="btn-secondary" onclick="nextPage()" ${data.offset + data.limit >= data.total ? 'disabled' : ''}>Next →</button>
+    <span style="padding: 8px 12px; color: #8890a8;">(${results.length} of ${data.total})</span>
+  `;
+  document.getElementById('pagination').innerHTML = paginationHTML;
+}
+
+function previousPage() { currentPage = Math.max(0, currentPage - 1); search(); }
+function nextPage() { currentPage++; search(); }
+
+async function uploadFile() {
+  const file = document.getElementById('file-upload').files[0];
+  if (!file) { alert('Select a file'); return; }
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  document.getElementById('upload_status').innerHTML = '<div class="status-msg info">⏳ Uploading…</div>';
+  
+  try {
+    const r = await fetch('/upload', {method: 'POST', body: formData});
+    const d = await r.json();
+    if (r.ok) {
+      document.getElementById('upload_status').innerHTML = `<div class="status-msg success">✅ ${d.message}</div>`;
+      document.getElementById('file-upload').value = '';
+      listFiles();
+    } else {
+      document.getElementById('upload_status').innerHTML = `<div class="status-msg error">❌ ${d.detail}</div>`;
+    }
+  } catch (e) {
+    document.getElementById('upload_status').innerHTML = `<div class="status-msg error">❌ ${e.message}</div>`;
+  }
+}
+
+async function listFiles() {
+  try {
+    const r = await fetch('/files');
+    const d = await r.json();
+    const html = d.files.length > 0
+      ? d.files.map(f => `
+        <div class="file-item">
+          <span>📄 ${f.filename}</span>
+          <span style="color: #8890a8; font-size: 0.8rem;">${(f.size_bytes / 1024).toFixed(1)}KB</span>
+          <button class="btn-danger" style="width: auto; padding: 4px 8px; font-size: 0.8rem; margin: 0;" onclick="deleteFile('${f.filename}')">Delete</button>
+        </div>
+      `).join('')
+      : '<div style="color: #8890a8; padding: 12px;">No files uploaded yet</div>';
+    document.getElementById('files-list').innerHTML = html;
+  } catch (e) {
+    document.getElementById('files-list').innerHTML = `<div style="color: #e05252;">Error: ${e.message}</div>`;
+  }
+}
+
+async function deleteFile(filename) {
+  if (!confirm(`Delete ${filename}?`)) return;
+  try {
+    const r = await fetch(`/files/${encodeURIComponent(filename)}`, {method: 'DELETE'});
+    const d = await r.json();
+    if (r.ok) {
+      listFiles();
+      addToHistory(`Deleted: ${filename}`);
+    } else {
+      alert(`Error: ${d.detail}`);
+    }
+  } catch (e) {
+    alert(`Error: ${e.message}`);
+  }
+}
+
+function addToHistory(query, resultCount = 0) {
+  let history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  history.unshift({query, timestamp: new Date().toLocaleString(), results: resultCount});
+  history = history.slice(0, 50); // Keep last 50
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
+
+function loadHistory() {
+  const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  const html = history.length > 0
+    ? history.map(h => `
+      <div class="history-item">
+        <div>
+          <strong>${h.query}</strong><br>
+          <span style="color: #8890a8; font-size: 0.85rem;">${h.timestamp}${h.results ? ' — ' + h.results + ' results' : ''}</span>
+        </div>
+        <button class="btn-secondary" style="width: auto; padding: 4px 8px; margin: 0;" onclick="document.getElementById('query').value='${h.query.replace(/'/g, "\\'")}';search()">Search</button>
+      </div>
+    `).join('')
+    : '<div style="color: #8890a8; padding: 12px;">No history yet</div>';
+  document.getElementById('history-list').innerHTML = html;
+}
+
+function clearHistory() {
+  if (confirm('Clear all search history?')) {
+    localStorage.removeItem(STORAGE_KEY);
+    document.getElementById('history-list').innerHTML = '<div style="color: #8890a8; padding: 12px;">History cleared</div>';
+  }
+}
+
+async function getSystemStatus() {
+  try {
+    const r = await fetch('/status');
+    const d = await r.json();
+    const html = `
+      <strong>Status:</strong> ${d.index_ready ? '✅ Ready' : '⚠️ Index Not Loaded'}<br>
+      <strong>Chunks Indexed:</strong> ${d.chunks_count}<br>
+      <strong>Model:</strong> ${d.model}<br>
+      <strong>Version:</strong> ${d.version}<br>
+      <strong>Last Update:</strong> ${new Date(d.timestamp).toLocaleString()}
+    `;
+    document.getElementById('system-status').innerHTML = html;
+  } catch (e) {
+    document.getElementById('system-status').innerHTML = `<span style="color: #e05252;">Error: ${e.message}</span>`;
+  }
+}
+
+async function viewAuditLogs() {
+  try {
+    const r = await fetch('/audit-logs?hours=24');
+    const d = await r.json();
+    const logCount = d.logs ? d.logs.length : 0;
+    document.getElementById('audit-status').innerHTML = `
+      <div class="status-msg success" style="margin-top: 12px;">
+        📊 ${logCount} audit events in last 24 hours
+      </div>
+    `;
+  } catch (e) {
+    document.getElementById('audit-status').innerHTML = `<div class="status-msg error">Error: ${e.message}</div>`;
+  }
+}
+
+// Initialize on load
+window.addEventListener('load', () => {
+  getSystemStatus();
+  loadHistory();
+});
 </script>
 </body>
 </html>
 """
 
+
 # ── Run ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    logger.info("=" * 80)
+    logger.info("🚀 Course Search Bot — Enterprise Edition v2.1.0")
+    logger.info("=" * 80)
+    logger.info("✓ Audit logging enabled")
+    logger.info("✓ Rate limiting enabled (100 req/60s per IP)")
+    logger.info("✓ File upload validation enabled")
+    logger.info("✓ Semantic search with pagination")
+    logger.info("")
+    logger.info("🌐 Web UI:        http://localhost:8000")
+    logger.info("📊 Audit logs:    /audit-logs")
+    logger.info("📁 File upload:   POST /upload")
+    logger.info("🔍 Search:        POST /search")
+    logger.info("=" * 80)
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
+
