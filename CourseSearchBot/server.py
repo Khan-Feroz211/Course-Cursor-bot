@@ -38,6 +38,7 @@ from core.indexer import Indexer
 from core.search_engine import SearchEngine
 from security.storage import MetadataStore
 from security.audit import AuditLogger, RateLimiter, FileUploadValidator
+from core.answer_generator import AnswerGenerator
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
@@ -51,11 +52,12 @@ indexer      = Indexer(cfg, store)
 engine       = SearchEngine(cfg, indexer, store)
 audit        = AuditLogger("data/audit.db")
 rate_limiter = RateLimiter(max_requests=100, window_seconds=60)
+answer_gen   = AnswerGenerator(indexer.model)  # Use the same embedding model for answer generation
 
 app = FastAPI(
     title="Course Search Bot — Enterprise Edition",
-    description="AI-powered semantic search for university course PDFs with audit logging & security",
-    version="2.1.0",
+    description="AI-powered semantic search for university course PDFs with audit logging, security & answer generation",
+    version="2.2.0",
 )
 
 # ── CORS Configuration ────────────────────────────────────────────────────────
@@ -228,7 +230,53 @@ def search(req: SearchRequest, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/upload")
+@app.post("/answer")
+def generate_answer(req: SearchRequest, request: Request):
+    """Generate a natural language answer from search results."""
+    client_ip = request.client.host if request.client else "unknown"
+    
+    if not engine.is_ready:
+        raise HTTPException(status_code=400, detail="Index not loaded. Call /index first.")
+    
+    try:
+        # Get search results
+        results = engine.search(req.query, top_k=req.top_k)
+        
+        # Apply filters
+        if req.file_filter:
+            results = [r for r in results if req.file_filter.lower() in r.file.lower()]
+        results = [r for r in results if r.score >= req.score_threshold]
+        
+        # Generate answer
+        answer_data = answer_gen.generate_answer(
+            query=req.query,
+            search_results=[r.to_dict() for r in results],
+            max_answer_length=500,
+        )
+        
+        audit.log(
+            action="ANSWER_GENERATED",
+            status="SUCCESS",
+            resource=req.query[:100],
+            ip_address=client_ip,
+            user_agent=request.headers.get("user-agent"),
+            details={"confidence": answer_data["confidence"], "sources_count": len(answer_data["sources"])},
+        )
+        
+        return {
+            **answer_data,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Answer generation error: {e}")
+        audit.log(
+            action="ANSWER_ERROR",
+            status="ERROR",
+            ip_address=client_ip,
+            details={"error": str(e)},
+            risk_level="WARNING",
+        )
+        raise HTTPException(status_code=500, detail=str(e))
 async def upload_file(file: UploadFile = File(...), request: Request = None):
     """Upload and validate a PDF file for indexing."""
     client_ip = request.client.host if request.client else "unknown"
@@ -399,7 +447,7 @@ def status():
         "index_ready": engine.is_ready,
         "chunks_count": store.count_chunks(),
         "model": cfg.model.name,
-        "version": "2.1.0",
+        "version": "2.2.0",
         "timestamp": datetime.utcnow().isoformat(),
     }
 
@@ -414,6 +462,7 @@ def root():
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Course Search Bot — Enterprise</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>🎓</text></svg>">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { 
@@ -596,7 +645,10 @@ def root():
             <input id="score-threshold" type="number" min="0" max="1" step="0.1" value="0.2" />
           </div>
         </div>
-        <button class="btn-primary" onclick="search()">🔍 Search</button>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <button class="btn-primary" onclick="search()">🔍 Search</button>
+          <button class="btn-success" onclick="getAnswer()">🤖 Get Answer</button>
+        </div>
         <div id="search_status"></div>
       </div>
     </div>
@@ -605,6 +657,15 @@ def root():
       <h2>Results</h2>
       <div id="results" style="margin-top: 12px; color: #8890a8;">Run a search above…</div>
       <div class="pagination" id="pagination"></div>
+    </div>
+
+    <div class="card" id="answer-card" style="display: none;">
+      <h2>🤖 AI Answer</h2>
+      <div id="answer-content" style="margin-top: 12px; background: #0f1117; padding: 16px; border-radius: 8px; border-left: 4px solid #4f8ef7; line-height: 1.6;">
+        <p id="answer-text" style="color: #e8eaf0; margin-bottom: 12px;"></p>
+        <div id="answer-sources" style="color: #8890a8; font-size: 0.9rem;"></div>
+        <div id="answer-confidence" style="color: #3ecf8e; font-size: 0.85rem; margin-top: 8px;"></div>
+      </div>
     </div>
   </div>
 
@@ -766,6 +827,63 @@ function displayResults(data) {
 function previousPage() { currentPage = Math.max(0, currentPage - 1); search(); }
 function nextPage() { currentPage++; search(); }
 
+async function getAnswer() {
+  const q = document.getElementById('query').value.trim();
+  if (!q) { alert('Enter a search query'); return; }
+  
+  document.getElementById('answer-card').style.display = 'block';
+  document.getElementById('answer-text').textContent = '⏳ Generating answer…';
+  document.getElementById('answer-sources').innerHTML = '';
+  document.getElementById('answer-confidence').innerHTML = '';
+  
+  try {
+    const fileFilter = document.getElementById('file-filter').value.trim();
+    const scoreThreshold = parseFloat(document.getElementById('score-threshold').value) || 0.2;
+    
+    const r = await fetch('/answer', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        query: q,
+        top_k: 10,
+        offset: 0,
+        file_filter: fileFilter || null,
+        score_threshold: scoreThreshold
+      })
+    });
+    
+    const data = await r.json();
+    if (!r.ok) {
+      document.getElementById('answer-text').innerHTML = `<span style="color: #e05252;">❌ ${data.detail}</span>`;
+      return;
+    }
+    
+    // Display answer
+    document.getElementById('answer-text').textContent = data.answer || 'No answer could be generated.';
+    
+    // Display sources
+    let sourcesHTML = '<strong>📚 Sources:</strong><br>';
+    if (data.sources && data.sources.length > 0) {
+      sourcesHTML += data.sources.map(src => 
+        `• <strong>${src.file}</strong> (Page ${src.page}) — ${(src.score * 100).toFixed(0)}% match`
+      ).join('<br>');
+    } else {
+      sourcesHTML += 'No specific sources found.';
+    }
+    document.getElementById('answer-sources').innerHTML = sourcesHTML;
+    
+    // Display confidence
+    const confidence = data.confidence * 100;
+    const confidenceColor = confidence > 70 ? '#3ecf8e' : confidence > 40 ? '#f0a500' : '#e05252';
+    document.getElementById('answer-confidence').innerHTML = 
+      `<strong style="color: ${confidenceColor};">Confidence: ${confidence.toFixed(0)}%</strong> | Method: ${data.method}`;
+    
+    addToHistory(`Answer: ${q}`);
+  } catch (e) {
+    document.getElementById('answer-text').innerHTML = `<span style="color: #e05252;">❌ Error: ${e.message}</span>`;
+  }
+}
+
 async function uploadFile() {
   const file = document.getElementById('file-upload').files[0];
   if (!file) { alert('Select a file'); return; }
@@ -901,17 +1019,19 @@ window.addEventListener('load', () => {
 # ── Run ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     logger.info("=" * 80)
-    logger.info("🚀 Course Search Bot — Enterprise Edition v2.1.0")
+    logger.info("🚀 Course Search Bot — Enterprise Edition v2.2.0")
     logger.info("=" * 80)
     logger.info("✓ Audit logging enabled")
     logger.info("✓ Rate limiting enabled (100 req/60s per IP)")
     logger.info("✓ File upload validation enabled")
-    logger.info("✓ Semantic search with pagination")
+    logger.info("✓ AI Answer Generation enabled")
+    logger.info("✓ Semantic search with pagination & filters")
     logger.info("")
     logger.info("🌐 Web UI:        http://localhost:8000")
+    logger.info("🤖 Answer API:    POST /answer")
+    logger.info("🔍 Search API:    POST /search")
     logger.info("📊 Audit logs:    /audit-logs")
     logger.info("📁 File upload:   POST /upload")
-    logger.info("🔍 Search:        POST /search")
     logger.info("=" * 80)
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
 
