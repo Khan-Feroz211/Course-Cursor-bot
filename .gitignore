@@ -1,0 +1,16 @@
+﻿__pycache__/
+*.py[cod]
+venv/
+env/
+CourseSearchBot/data/
+*.db
+*.faiss
+*.pkl
+CourseSearchBot/course_docs/*
+!CourseSearchBot/course_docs/.gitkeep
+dist/
+build/
+.DS_Store
+Thumbs.db
+.env
+*.log

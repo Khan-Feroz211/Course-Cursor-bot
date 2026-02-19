@@ -1,17 +1,49 @@
-﻿__pycache__/
+# Python
+__pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
 venv/
 env/
+.venv/
+
+# App data (user-specific, never commit)
 data/
 *.db
 *.faiss
+*.json
 *.pkl
-index_manifest.json
-course_docs/*
+
+# Course documents (user's private files)
+course_docs/
 !course_docs/.gitkeep
+
+# PyInstaller output
 dist/
 build/
+*.spec.bak
+
+# OS files
 .DS_Store
 Thumbs.db
-.env
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
 *.log
+logs/
+
+# Environment variables
+.env
+.env.*

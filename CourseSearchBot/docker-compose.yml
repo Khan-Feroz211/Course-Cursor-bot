@@ -1,16 +1,16 @@
-﻿version: "3.9"
+version: "3.9"
 
 services:
   course-search-bot:
     build: .
     container_name: course_search_bot
-    restart: always
+    restart: always                  # ← Keeps it alive forever, auto-restarts on crash
     ports:
-      - "8000:8000"
+      - "8000:8000"                  # Access at http://localhost:8000
     volumes:
-      - ./course_docs:/app/course_docs
-      - ./data:/app/data
-      - ./config:/app/config
+      - ./course_docs:/app/course_docs   # Mount your PDFs folder
+      - ./data:/app/data                 # Persist the AI index between restarts
+      - ./config:/app/config             # Persist settings
     environment:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
@@ -20,3 +20,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+# ── How to use ─────────────────────────────────────────────────
+# Start:   docker-compose up -d
+# Stop:    docker-compose down
+# Logs:    docker-compose logs -f
+# Rebuild: docker-compose up -d --build
