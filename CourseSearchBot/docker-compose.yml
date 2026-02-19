@@ -1,0 +1,22 @@
+﻿version: "3.9"
+
+services:
+  course-search-bot:
+    build: .
+    container_name: course_search_bot
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./course_docs:/app/course_docs
+      - ./data:/app/data
+      - ./config:/app/config
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

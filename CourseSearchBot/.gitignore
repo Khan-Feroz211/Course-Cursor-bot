@@ -1,0 +1,17 @@
+﻿__pycache__/
+*.py[cod]
+venv/
+env/
+data/
+*.db
+*.faiss
+*.pkl
+index_manifest.json
+course_docs/*
+!course_docs/.gitkeep
+dist/
+build/
+.DS_Store
+Thumbs.db
+.env
+*.log
