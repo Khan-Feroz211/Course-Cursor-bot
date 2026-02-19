@@ -27,7 +27,7 @@ os.makedirs("course_docs", exist_ok=True)
 os.makedirs("data", exist_ok=True)
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile, Request, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
@@ -469,10 +469,10 @@ def status():
     }
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 def root():
     """Enhanced web UI with file management, history, pagination, and filters."""
-    return """
+    html_content = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1031,6 +1031,7 @@ window.addEventListener('load', () => {
 </body>
 </html>
 """
+    return Response(content=html_content, media_type="text/html; charset=utf-8")
 
 
 # ── Run ───────────────────────────────────────────────────────────────────────
