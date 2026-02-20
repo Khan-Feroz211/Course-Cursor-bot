@@ -25,6 +25,7 @@ class IndexingConfig:
 @dataclass
 class SearchConfig:
     top_k: int = 10
+    max_results: int = 10  # Maximum PDF/document results to display (support up to 10)
     threshold: float = 1.5
 
 

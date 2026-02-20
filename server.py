@@ -637,6 +637,114 @@ def status():
     }
 
 
+@app.get("/analytics/realtime")
+def get_realtime_analytics():
+    """Get real-time analytics for live dashboard."""
+    try:
+        conn = sqlite3.connect(ANALYTICS_DB)
+        
+        # Last 1 hour data
+        recent = conn.execute("""
+            SELECT COUNT(*) FROM search_queries
+            WHERE timestamp > datetime('now', '-1 hour')
+        """).fetchone()[0]
+        
+        # Most recent searches
+        latest_searches = conn.execute("""
+            SELECT query, timestamp FROM search_queries
+            ORDER BY timestamp DESC LIMIT 5
+        """).fetchall()
+        
+        # Search trend (last 6 hours)
+        trend = conn.execute("""
+            SELECT COUNT(*) as count FROM search_queries
+            WHERE timestamp > datetime('now', '-6 hours')
+        """).fetchone()[0]
+        
+        conn.close()
+        
+        return {
+            "searches_last_hour": recent,
+            "trend_6hours": trend,
+            "latest_searches": [
+                {"query": q[0], "time": q[1]}
+                for q in latest_searches
+            ],
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Realtime analytics error: {e}")
+        return {"searches_last_hour": 0, "trend_6hours": 0, "latest_searches": [], "timestamp": datetime.utcnow().isoformat()}
+
+
+@app.get("/analytics/document-stats")
+def get_document_stats():
+    """Get document access statistics."""
+    try:
+        conn = sqlite3.connect(ANALYTICS_DB)
+        
+        # Top accessed document types
+        doc_types = conn.execute("""
+            SELECT file_type, COUNT(*) as access_count
+            FROM file_uploads
+            GROUP BY file_type
+            ORDER BY access_count DESC
+        """).fetchall()
+        
+        # Total file uploads
+        total_files = conn.execute("""
+            SELECT COUNT(*) FROM file_uploads WHERE status = 'success'
+        """).fetchone()[0]
+        
+        conn.close()
+        
+        return {
+            "total_documents": total_files,
+            "document_types": [
+                {"type": d[0], "count": d[1]}
+                for d in doc_types
+            ],
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Document stats error: {e}")
+        return {"total_documents": 0, "document_types": [], "timestamp": datetime.utcnow().isoformat()}
+
+
+@app.get("/analytics/search-distribution")
+def get_search_distribution():
+    """Get search relevance score distribution."""
+    try:
+        conn = sqlite3.connect(ANALYTICS_DB)
+        
+        # Queries by result count (shows search effectiveness)
+        distribution = conn.execute("""
+            SELECT 
+                CASE 
+                    WHEN results_count = 0 THEN 'No Results'
+                    WHEN results_count < 3 THEN 'Few (1-2)'
+                    WHEN results_count < 10 THEN 'Medium (3-9)'
+                    ELSE 'Many (10+)'
+                END as range,
+                COUNT(*) as count
+            FROM search_queries
+            GROUP BY range
+        """).fetchall()
+        
+        conn.close()
+        
+        return {
+            "distribution": [
+                {"range": d[0], "count": d[1]}
+                for d in distribution
+            ],
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Search distribution error: {e}")
+        return {"distribution": [], "timestamp": datetime.utcnow().isoformat()}
+
+
 @app.get("/")
 def root():
     """Enhanced web UI with file management, history, pagination, and filters."""
@@ -790,6 +898,156 @@ def root():
   .status-msg.success { background: #1a3a2a; color: #3ecf8e; border: 1px solid #3ecf8e; }
   .status-msg.error { background: #3a1a1a; color: #e05252; border: 1px solid #e05252; }
   .status-msg.info { background: #1a2a3a; color: #4f8ef7; border: 1px solid #4f8ef7; }
+  
+  /* Live Analytics Sidebar */
+  .analytics-sidebar {
+    position: fixed;
+    right: -350px;
+    top: 0;
+    width: 350px;
+    height: 100vh;
+    background: linear-gradient(135deg, #1a1d27 0%, #0f1117 100%);
+    border-left: 2px solid #4f8ef7;
+    overflow-y: auto;
+    z-index: 1000;
+    transition: right 0.3s ease;
+    padding: 20px;
+    box-shadow: -5px 0 30px rgba(0,0,0,0.5);
+  }
+  .analytics-sidebar.open { right: 0; }
+  .sidebar-toggle {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #4f8ef7 0%, #7c5cbf 100%);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    z-index: 999;
+    box-shadow: 0 4px 20px rgba(79, 142, 247, 0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .sidebar-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 30px rgba(79, 142, 247, 0.6);
+  }
+  .sidebar-header {
+    color: #4f8ef7;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sidebar-close {
+    background: none;
+    border: none;
+    color: #8890a8;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    width: auto;
+    margin: 0;
+  }
+  .sidebar-stat {
+    background: #0f1117;
+    border: 1px solid #2a2d3e;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+  }
+  .stat-label {
+    color: #8890a8;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    color: #3ecf8e;
+    font-size: 2rem;
+    font-weight: bold;
+  }
+  .stat-small {
+    color: #4f8ef7;
+    font-size: 1rem;
+    margin-top: 8px;
+  }
+  
+  /* Search Results Stats Panel */
+  .results-container {
+    display: grid;
+    grid-template-columns: 1fr 0fr;
+    gap: 20px;
+  }
+  .results-main { flex: 1; }
+  .results-stats {
+    min-width: 280px;
+    background: #0f1117;
+    border: 1px solid #2a2d3e;
+    border-radius: 8px;
+    padding: 16px;
+    height: fit-content;
+    position: sticky;
+    top: 20px;
+  }
+  .results-stats h3 {
+    color: #4f8ef7;
+    font-size: 0.95rem;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .score-bar {
+    height: 20px;
+    background: #2a2d3e;
+    border-radius: 4px;
+    margin: 8px 0;
+    overflow: hidden;
+  }
+  .score-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #e05252, #f0a500, #3ecf8e);
+    transition: width 0.3s ease;
+  }
+  
+  /* Document Stats Widget */
+  .doc-stats {
+    background: #0f1117;
+    border: 1px solid #2a2d3e;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 15px;
+    font-size: 0.85rem;
+  }
+  .doc-stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid #2a2d3e;
+  }
+  .doc-stat-row:last-child { border-bottom: none; }
+  .doc-type { color: #8890a8; }
+  .doc-count { color: #3ecf8e; font-weight: 600; }
+  
+  /* Mini Charts */
+  .mini-chart {
+    width: 100%;
+    height: 100px;
+    margin-top: 10px;
+    border-radius: 4px;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 1200px) {
+    .results-container { grid-template-columns: 1fr; }
+    .results-stats { min-width: none; }
+  }
 </style>
 </head>
 <body>
@@ -842,8 +1100,34 @@ def root():
 
     <div class="card">
       <h2>Results</h2>
-      <div id="results" style="margin-top: 12px; color: #8890a8;">Run a search above…</div>
-      <div class="pagination" id="pagination"></div>
+      <div class="results-container">
+        <div class="results-main">
+          <div id="results" style="margin-top: 12px; color: #8890a8;">Run a search above…</div>
+          <div class="pagination" id="pagination"></div>
+        </div>
+        <div class="results-stats">
+          <h3>📊 Quick Stats</h3>
+          <div class="sidebar-stat">
+            <div class="stat-label">Results Found</div>
+            <div class="stat-value" id="quick-result-count">0</div>
+          </div>
+          <div class="sidebar-stat">
+            <div class="stat-label">Avg Score</div>
+            <div class="stat-value" id="quick-avg-score">0%</div>
+            <div class="score-bar">
+              <div class="score-fill" id="quick-score-bar" style="width: 0%;"></div>
+            </div>
+          </div>
+          <div class="sidebar-stat">
+            <div class="stat-label">Score Distribution</div>
+            <canvas id="scoreDistributionChart" class="mini-chart"></canvas>
+          </div>
+          <div class="sidebar-stat">
+            <div class="stat-label">Document Access</div>
+            <canvas id="docAccessChart" class="mini-chart"></canvas>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card" id="answer-card" style="display: none;">
@@ -989,6 +1273,40 @@ def root():
   </div>
 </div>
 
+<!-- Live Analytics Sidebar -->
+<div class="analytics-sidebar" id="analytics-sidebar">
+  <div class="sidebar-header">
+    📊 Live Stats
+    <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
+  </div>
+  
+  <div class="sidebar-stat">
+    <div class="stat-label">Last Hour Searches</div>
+    <div class="stat-value" id="sidebar-last-hour">0</div>
+    <div class="stat-small" id="sidebar-trend">↑ Trend</div>
+  </div>
+  
+  <div class="sidebar-stat">
+    <div class="stat-label">Latest Searches</div>
+    <div id="sidebar-latest-searches" style="color: #8890a8; font-size: 0.85rem; max-height: 150px; overflow-y: auto;"></div>
+  </div>
+  
+  <div class="sidebar-stat">
+    <div class="stat-label">Document Stats</div>
+    <div id="sidebar-doc-stats" class="doc-stats"></div>
+  </div>
+  
+  <div class="sidebar-stat">
+    <div class="stat-label">Search Effectiveness</div>
+    <canvas id="distributionChart" class="mini-chart"></canvas>
+  </div>
+  
+  <button class="btn-secondary" onclick="refreshSidebarStats()" style="margin-top: 15px;">🔄 Refresh</button>
+</div>
+
+<!-- Sidebar Toggle Button -->
+<button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">📈</button>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 const STORAGE_KEY = 'course_bot_history';
@@ -997,6 +1315,95 @@ let lastResults = [];
 let lastQuery = '';
 let analyticsChart = null;
 let searchChartInstance = null;
+let scoreDistributionChart = null;
+let docAccessChart = null;
+let distributionChartInstance = null;
+
+function toggleSidebar() {
+  document.getElementById('analytics-sidebar').classList.toggle('open');
+}
+
+function refreshSidebarStats() {
+  loadRealtimeAnalytics();
+  loadDocumentStats();
+  loadSearchDistribution();
+}
+
+async function loadRealtimeAnalytics() {
+  try {
+    const r = await fetch('/analytics/realtime');
+    const data = await r.json();
+    
+    document.getElementById('sidebar-last-hour').textContent = data.searches_last_hour;
+    const trend = data.trend_6hours > data.searches_last_hour ? '↑' : '↓';
+    document.getElementById('sidebar-trend').textContent = `${trend} 6h: ${data.trend_6hours}`;
+    
+    const latestHTML = data.latest_searches.map(q => `
+      <div style="padding: 6px 0; border-bottom: 1px solid #2a2d3e; cursor: pointer;" onclick="document.getElementById('query').value='${q.query.replace(/'/g, "\\'")}'; search()">
+        <span style="color: #e8eaf0; font-size: 0.8rem;">${q.query.substring(0, 40)}</span>
+        <br><span style="color: #8890a8; font-size: 0.75rem;">${new Date(q.time).toLocaleTimeString()}</span>
+      </div>
+    `).join('');
+    document.getElementById('sidebar-latest-searches').innerHTML = latestHTML || '<div style="color: #8890a8; padding: 8px;">No searches yet</div>';
+  } catch (e) {
+    console.error('Error loading realtime analytics:', e);
+  }
+}
+
+async function loadDocumentStats() {
+  try {
+    const r = await fetch('/analytics/document-stats');
+    const data = await r.json();
+    
+    const statsHTML = data.document_types.map(d => `
+      <div class="doc-stat-row">
+        <span class="doc-type">${d.type || 'Unknown'}</span>
+        <span class="doc-count">${d.count}</span>
+      </div>
+    `).join('');
+    
+    document.getElementById('sidebar-doc-stats').innerHTML = statsHTML || '<div style="color: #8890a8;">No documents uploaded</div>';
+  } catch (e) {
+    console.error('Error loading document stats:', e);
+  }
+}
+
+async function loadSearchDistribution() {
+  try {
+    const r = await fetch('/analytics/search-distribution');
+    const data = await r.json();
+    
+    if (data.distribution.length === 0) return;
+    
+    const ctx = document.getElementById('distributionChart').getContext('2d');
+    if (distributionChartInstance) distributionChartInstance.destroy();
+    
+    const ranges = data.distribution.map(d => d.range);
+    const counts = data.distribution.map(d => d.count);
+    
+    distributionChartInstance = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ranges,
+        datasets: [{
+          data: counts,
+          backgroundColor: ['#e05252', '#f0a500', '#4f8ef7', '#3ecf8e'],
+          borderColor: '#1a1d27',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { labels: { color: '#8890a8', font: { size: 11 } } }
+        }
+      }
+    });
+  } catch (e) {
+    console.error('Error loading search distribution:', e);
+  }
+}
 
 function switchTab(tab) {
   // Hide all tabs
@@ -1075,7 +1482,78 @@ function displayResults(data) {
   if (!results || results.length === 0) {
     document.getElementById('results').innerHTML = '<span style="color: #8890a8;">No results found.</span>';
     document.getElementById('pagination').innerHTML = '';
+    document.getElementById('quick-result-count').textContent = '0';
+    document.getElementById('quick-avg-score').textContent = '0%';
     return;
+  }
+  
+  // Calculate stats
+  const avgScore = results.reduce((sum, r) => sum + r.score, 0) / results.length;
+  document.getElementById('quick-result-count').textContent = results.length;
+  document.getElementById('quick-avg-score').textContent = (avgScore * 100).toFixed(0) + '%';
+  document.getElementById('quick-score-bar').style.width = (avgScore * 100) + '%';
+  
+  // Create score distribution chart
+  const scoreRanges = [
+    {range: 'High (>0.7)', count: results.filter(r => r.score > 0.7).length},
+    {range: 'Medium (0.4-0.7)', count: results.filter(r => r.score >= 0.4 && r.score <= 0.7).length},
+    {range: 'Low (<0.4)', count: results.filter(r => r.score < 0.4).length}
+  ];
+  
+  const ctx = document.getElementById('scoreDistributionChart');
+  if (ctx && ctx.getContext) {
+    if (scoreDistributionChart) scoreDistributionChart.destroy();
+    scoreDistributionChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: scoreRanges.map(s => s.range),
+        datasets: [{
+          data: scoreRanges.map(s => s.count),
+          backgroundColor: ['#3ecf8e', '#f0a500', '#e05252'],
+          borderColor: '#1a1d27',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: { legend: { labels: { color: '#8890a8', font: { size: 10 } } } }
+      }
+    });
+  }
+  
+  // Document access chart
+  const docCounts = {};
+  results.forEach(r => {
+    docCounts[r.file] = (docCounts[r.file] || 0) + 1;
+  });
+  
+  const docCtx = document.getElementById('docAccessChart');
+  if (docCtx && docCtx.getContext && Object.keys(docCounts).length > 0) {
+    if (docAccessChart) docAccessChart.destroy();
+    docAccessChart = new Chart(docCtx, {
+      type: 'bar',
+      data: {
+        labels: Object.keys(docCounts).slice(0, 5),
+        datasets: [{
+          label: 'Results',
+          data: Object.values(docCounts).slice(0, 5),
+          backgroundColor: '#4f8ef7',
+          borderColor: '#6fa5ff',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: { legend: { labels: { color: '#8890a8', font: { size: 9 } } } },
+        scales: {
+          x: { ticks: { color: '#8890a8' }, grid: { color: '#2a2d3e' } },
+          y: { ticks: { color: '#8890a8' } }
+        }
+      }
+    });
   }
   
   const resultsHTML = results.map((x, i) => {
@@ -1400,7 +1878,14 @@ function quickSearchCE(topic) {
 window.addEventListener('load', () => {
   getSystemStatus();
   loadHistory();
-  // Auto-load analytics every 2 minutes
+  refreshSidebarStats();
+  
+  // Auto-refresh sidebar stats every 30 seconds
+  setInterval(() => {
+    refreshSidebarStats();
+  }, 30000);
+  
+  // Auto-load analytics every 2 minutes when on Analytics tab
   setInterval(() => {
     if (document.querySelector('.tab-btn.active')?.textContent.includes('Analytics')) {
       loadAnalytics();

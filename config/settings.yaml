@@ -9,6 +9,7 @@ indexing:
 
 search:
   top_k: 10
+  max_results: 10
   threshold: 1.5
 
 storage:
