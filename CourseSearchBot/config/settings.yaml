@@ -1,0 +1,20 @@
+model:
+  name: "all-MiniLM-L6-v2"
+  batch_size: 64
+
+indexing:
+  chunk_size: 200
+  ivf_threshold: 1000
+  nlist: 100
+
+search:
+  top_k: 10
+  threshold: 1.5
+
+storage:
+  db_path: "data/index_store.db"
+  faiss_index: "data/doc_index.faiss"
+  manifest: "data/index_manifest.json"
+
+logging:
+  level: "INFO"
