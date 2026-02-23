@@ -758,11 +758,11 @@ def root():
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>🎓</text></svg>">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { 
-    background: linear-gradient(135deg, #0f1117 0%, #1a1d27 100%); 
-    color: #e8eaf0; 
-    font-family: 'Segoe UI', sans-serif; 
-    min-height: 100vh; 
+  body {
+    background: linear-gradient(135deg, #071029 0%, #0b2540 100%);
+    color: #f4f7fb;
+    font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial;
+    min-height: 100vh;
     padding: 20px;
   }
   .container { max-width: 1200px; margin: 0 auto; }
@@ -770,16 +770,16 @@ def root():
   h1 { font-size: 2.5rem; margin-bottom: 8px; color: #4f8ef7; text-shadow: 0 0 20px rgba(79, 142, 247, 0.3); }
   .sub { color: #8890a8; font-size: 1.1rem; margin-bottom: 20px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-bottom: 30px; }
-  .card { 
-    background: #1a1d27; 
-    border: 1px solid #2a2d3e; 
+  .card {
+    background: linear-gradient(180deg,#0f1b2b 0%, #0b1622 100%);
+    border: 1px solid rgba(255,255,255,0.04);
     border-radius: 12px; 
     padding: 24px; 
     box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     transition: transform 0.2s, box-shadow 0.2s;
   }
-  .card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(79, 142, 247, 0.2); }
-  .card h2 { color: #4f8ef7; margin-bottom: 16px; font-size: 1.2rem; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(12,60,90,0.25); }
+  .card h2 { color: #FFD166; margin-bottom: 16px; font-size: 1.2rem; }
   input, textarea, select { 
     width: 100%; 
     padding: 12px 16px; 
@@ -809,14 +809,14 @@ def root():
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-  .btn-primary { background: #4f8ef7; color: white; }
-  .btn-primary:hover { background: #6fa5ff; transform: translateY(-2px); }
-  .btn-success { background: #3ecf8e; color: #000; }
-  .btn-success:hover { background: #5ce5a0; }
-  .btn-danger { background: #e05252; color: white; }
-  .btn-danger:hover { background: #f07070; }
-  .btn-secondary { background: #2a2d3e; color: #e8eaf0; }
-  .btn-secondary:hover { background: #3a3d4e; }
+  .btn-primary { background: linear-gradient(90deg,#00B4D8,#0077B6); color: white; }
+  .btn-primary:hover { filter: brightness(1.05); transform: translateY(-2px); }
+  .btn-success { background: linear-gradient(90deg,#3ecf8e,#2bb673); color: #012; }
+  .btn-success:hover { filter: brightness(1.05); }
+  .btn-danger { background: linear-gradient(90deg,#ff6b6b,#e63946); color: white; }
+  .btn-danger:hover { filter: brightness(1.05); }
+  .btn-secondary { background: rgba(255,255,255,0.02); color: #cfe7ff; }
+  .btn-secondary:hover { background: rgba(255,255,255,0.04); }
   #results { 
     white-space: pre-wrap; 
     font-family: 'Consolas', monospace; 
@@ -847,13 +847,13 @@ def root():
     align-items: center;
   }
   .file-item:last-child, .history-item:last-child { border-bottom: none; }
-  .badge { 
-    display: inline-block; 
-    background: #7c5cbf; 
-    color: white; 
-    padding: 4px 12px; 
-    border-radius: 20px; 
-    font-size: 0.75rem; 
+  .badge {
+    display: inline-block;
+    background: linear-gradient(90deg,#7c5cbf,#4f46e5);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
     margin-left: 10px;
   }
   .badge.success { background: #3ecf8e; color: #000; }
@@ -902,12 +902,12 @@ def root():
   /* Live Analytics Sidebar */
   .analytics-sidebar {
     position: fixed;
-    right: -350px;
+    right: -380px;
     top: 0;
-    width: 350px;
+    width: 380px;
     height: 100vh;
-    background: linear-gradient(135deg, #1a1d27 0%, #0f1117 100%);
-    border-left: 2px solid #4f8ef7;
+    background: linear-gradient(180deg,#071029,#07263a);
+    border-left: 2px solid rgba(255,255,255,0.04);
     overflow-y: auto;
     z-index: 1000;
     transition: right 0.3s ease;
@@ -936,7 +936,7 @@ def root():
     box-shadow: 0 6px 30px rgba(79, 142, 247, 0.6);
   }
   .sidebar-header {
-    color: #4f8ef7;
+    color: #FFD166;
     font-size: 1.1rem;
     font-weight: 600;
     margin-bottom: 20px;
@@ -1064,6 +1064,7 @@ def root():
     <button class="tab-btn" onclick="switchTab('ce-counselor')">🏗️ CE Counselor</button>
     <button class="tab-btn" onclick="switchTab('analytics')">📊 Analytics</button>
     <button class="tab-btn" onclick="switchTab('history')">📋 History</button>
+    <button class="tab-btn" onclick="switchTab('plotter')">📈 Plotter</button>
     <button class="tab-btn" onclick="switchTab('settings')">⚙ Settings</button>
   </div>
 
@@ -1253,6 +1254,32 @@ def root():
   </div>
 
   <!-- SETTINGS TAB -->
+  <!-- PLOTTER TAB -->
+  <div id="plotter" class="tab-content">
+    <div class="grid">
+      <div class="card">
+        <h2>Custom Plotter</h2>
+        <p style="color: #cfe7ff; font-size: 0.9rem; margin-bottom: 10px;">Paste CSV or JSON array of objects (one per line) to plot.</p>
+        <textarea id="plot-data-input" placeholder="e.g.\n[ {\"x\":1,\"y\":2}, {\"x\":2,\"y\":3} ]\nOR\nvalue,series\n1,2\n2,3" style="width:100%;height:160px;padding:12px;border-radius:8px;background:rgba(255,255,255,0.02);color:#f4f7fb;border:1px solid rgba(255,255,255,0.03);"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <select id="plot-type" style="padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);color:#f4f7fb;border:1px solid rgba(255,255,255,0.03);">
+            <option value="line">Line</option>
+            <option value="bar">Bar</option>
+            <option value="doughnut">Doughnut</option>
+          </select>
+          <button class="btn-primary" onclick="samplePlotData()">🎲 Sample</button>
+          <button class="btn-success" onclick="parseAndPlot()">📈 Plot</button>
+        </div>
+        <div id="plot-stats" style="margin-top:12px;color:#cfe7ff;font-size:0.9rem;"></div>
+      </div>
+
+      <div class="card">
+        <h2>Plot</h2>
+        <canvas id="customPlotCanvas" style="width:100%;max-height:400px;"></canvas>
+      </div>
+    </div>
+  </div>
+
   <div id="settings" class="tab-content">
     <div class="grid">
       <div class="card">
@@ -1404,6 +1431,98 @@ async function loadSearchDistribution() {
     console.error('Error loading search distribution:', e);
   }
 }
+
+// -- Custom Plotter functions -------------------------------------------------
+function samplePlotData() {
+  const sample = JSON.stringify([{x:1,y:2},{x:2,y:5},{x:3,y:3},{x:4,y:7}], null, 2);
+  document.getElementById('plot-data-input').value = sample;
+}
+
+function computeBasicStats(values) {
+  if (!values || values.length === 0) return {};
+  const sum = values.reduce((a,b)=>a+b,0);
+  const avg = sum / values.length;
+  const sorted = [...values].sort((a,b)=>a-b);
+  const median = sorted.length%2===1 ? sorted[(sorted.length-1)/2] : (sorted[sorted.length/2-1]+sorted[sorted.length/2])/2;
+  return {count: values.length, sum, avg, median, min: sorted[0], max: sorted[sorted.length-1]};
+}
+
+function plotFromData(parsed, type) {
+  // parsed: array of {x:..., y:...} or array of values
+  let labels = [];
+  let data = [];
+  if (Array.isArray(parsed) && parsed.length>0 && typeof parsed[0] === 'object') {
+    labels = parsed.map((d,i)=> d.x ?? i+1);
+    data = parsed.map(d=> Number(d.y ?? d.value ?? 0));
+  } else if (Array.isArray(parsed)) {
+    labels = parsed.map((_,i)=>i+1);
+    data = parsed.map(v=> Number(v));
+  } else {
+    // unsupported
+    alert('Unsupported data format. Provide array of objects or values.');
+    return null;
+  }
+
+  const ctx = document.getElementById('customPlotCanvas').getContext('2d');
+  if (window.customChartInstance) window.customChartInstance.destroy();
+  const cfg = {
+    type: type,
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Series 1',
+        data: data,
+        backgroundColor: type==='doughnut' ? ['#00B4D8','#FFD166','#FF6B6B','#7C4DFF'] : '#00B4D8',
+        borderColor: '#0b2540',
+        borderWidth: 1,
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#cfe7ff' } } },
+      scales: {
+        x: { ticks: { color: '#cfe7ff' }, grid: { color: 'rgba(255,255,255,0.03)' } },
+        y: { ticks: { color: '#cfe7ff' }, grid: { color: 'rgba(255,255,255,0.03)' } }
+      }
+    }
+  };
+  window.customChartInstance = new Chart(ctx, cfg);
+  return data;
+}
+
+function parseAndPlot() {
+  const raw = document.getElementById('plot-data-input').value.trim();
+  if (!raw) { alert('Paste some data first'); return; }
+  let parsed = null;
+  try {
+    // Try JSON first
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    // Try CSV simple parse (assume two columns)
+    const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+    if (lines.length>0 && lines[0].includes(',')) {
+      // If header present with comma and non-numeric, skip header
+      const hasHeader = isNaN(lines[0].split(',')[0]);
+      const rows = lines.map((ln,i)=> {
+        const parts = ln.split(',').map(p=>p.trim());
+        if (hasHeader && i===0) return null;
+        return {x: parts[0], y: Number(parts[1]||0)};
+      }).filter(Boolean);
+      parsed = rows;
+    }
+  }
+
+  if (!parsed) { alert('Failed to parse data. Provide JSON array or CSV.'); return; }
+  const type = document.getElementById('plot-type').value || 'line';
+  const data = plotFromData(parsed, type);
+  if (data) {
+    const stats = computeBasicStats(data);
+    document.getElementById('plot-stats').innerHTML = `Count: ${stats.count} — Avg: ${stats.avg.toFixed(2)} — Median: ${stats.median}`;
+  }
+}
+
 
 function switchTab(tab) {
   // Hide all tabs
