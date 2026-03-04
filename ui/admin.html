@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prof. AI Assistant - Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#0F172A] text-[#F8FAFC]">
+  <div id="toastWrap" class="fixed top-5 right-5 z-50 space-y-2"></div>
+  <div class="flex min-h-screen">
+    <aside class="w-[240px] bg-[#1E293B] border-r border-[#334155] flex flex-col">
+      <div class="p-5 border-b border-[#334155]">
+        <div class="text-2xl font-bold text-[#EF4444]">🛡 Admin</div>
+        <div class="text-xs text-slate-300 mt-1">Control Panel</div>
+      </div>
+      <nav class="p-3 space-y-2 flex-1">
+        <button data-tab="health" class="tab-btn w-full text-left px-3 py-2 rounded bg-[#334155]">🖥 System Health</button>
+        <button data-tab="users" class="tab-btn w-full text-left px-3 py-2 rounded hover:bg-[#334155]">👥 User Management</button>
+        <button data-tab="queries" class="tab-btn w-full text-left px-3 py-2 rounded hover:bg-[#334155]">💬 Query Monitor</button>
+        <button data-tab="files" class="tab-btn w-full text-left px-3 py-2 rounded hover:bg-[#334155]">📁 File Monitor</button>
+        <button data-tab="logs" class="tab-btn w-full text-left px-3 py-2 rounded hover:bg-[#334155]">📋 Logs</button>
+      </nav>
+      <div class="p-4 border-t border-[#334155] text-sm">
+        <a href="/logout" class="text-slate-300 hover:text-white">Logout</a>
+      </div>
+    </aside>
+
+    <main class="flex-1 overflow-y-auto p-6 space-y-4">
+      <section id="tab-health" class="tab-content space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3" id="healthCards"></div>
+        <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4 text-sm">
+          <div id="platformInfo">Python: - | Platform: -</div>
+        </div>
+      </section>
+
+      <section id="tab-users" class="tab-content hidden space-y-3">
+        <button onclick="openAddUser()" class="px-4 py-2 bg-[#EF4444] rounded">Add New User</button>
+        <div class="bg-[#1E293B] border border-[#334155] rounded-xl overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-[#0B1220] text-slate-300"><tr><th class="p-3 text-left">ID</th><th class="p-3 text-left">Username</th><th class="p-3 text-left">Created</th><th class="p-3 text-left">Last Login</th><th class="p-3 text-left">Docs</th><th class="p-3 text-left">Queries</th><th class="p-3 text-left">Status</th><th class="p-3 text-left">Actions</th></tr></thead>
+            <tbody id="usersBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-queries" class="tab-content hidden space-y-3">
+        <div class="flex gap-2">
+          <input id="qUser" class="rounded bg-[#1E293B] border border-[#334155] p-2" placeholder="username">
+          <input id="qKeyword" class="rounded bg-[#1E293B] border border-[#334155] p-2" placeholder="keyword">
+          <button onclick="loadQueries()" class="px-3 py-2 bg-[#EF4444] rounded">Filter</button>
+        </div>
+        <div class="bg-[#1E293B] border border-[#334155] rounded-xl overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-[#0B1220] text-slate-300"><tr><th class="p-3 text-left">Time</th><th class="p-3 text-left">Username</th><th class="p-3 text-left">Question</th><th class="p-3 text-left">Speed</th></tr></thead>
+            <tbody id="queriesBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-files" class="tab-content hidden">
+        <div class="bg-[#1E293B] border border-[#334155] rounded-xl overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-[#0B1220] text-slate-300"><tr><th class="p-3 text-left">Username</th><th class="p-3 text-left">Filename</th><th class="p-3 text-left">Type</th><th class="p-3 text-left">Size</th><th class="p-3 text-left">Uploaded</th><th class="p-3 text-left">Status</th></tr></thead>
+            <tbody id="filesBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-logs" class="tab-content hidden space-y-2">
+        <button onclick="loadLogs()" class="px-3 py-2 bg-[#EF4444] rounded">Refresh</button>
+        <pre id="logPre" class="bg-[#1E293B] border border-[#334155] rounded-xl p-3 text-xs overflow-auto h-[70vh]"></pre>
+      </section>
+    </main>
+  </div>
+
+  <div id="addModal" class="hidden fixed inset-0 bg-black/60 items-center justify-center">
+    <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4 w-[380px] space-y-2">
+      <h3 class="font-bold">Add User</h3>
+      <input id="newUserName" class="w-full rounded bg-[#0F172A] border border-[#334155] p-2" placeholder="username">
+      <input id="newUserPw" type="password" class="w-full rounded bg-[#0F172A] border border-[#334155] p-2" placeholder="password">
+      <div class="flex justify-end gap-2"><button onclick="closeModals()" class="px-3 py-2 bg-slate-600 rounded">Cancel</button><button onclick="addUser()" class="px-3 py-2 bg-[#EF4444] rounded">Create</button></div>
+    </div>
+  </div>
+
+  <div id="resetModal" class="hidden fixed inset-0 bg-black/60 items-center justify-center">
+    <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4 w-[380px] space-y-2">
+      <h3 class="font-bold">Reset Password</h3>
+      <input id="resetPw" type="password" class="w-full rounded bg-[#0F172A] border border-[#334155] p-2" placeholder="new password">
+      <input id="resetUid" type="hidden">
+      <div class="flex justify-end gap-2"><button onclick="closeModals()" class="px-3 py-2 bg-slate-600 rounded">Cancel</button><button onclick="doReset()" class="px-3 py-2 bg-[#EF4444] rounded">Reset</button></div>
+    </div>
+  </div>
+
+<script>
+let activeTab="health";
+function toast(message,type="success"){
+  const d=document.createElement("div");
+  d.className=`px-4 py-3 rounded shadow text-sm ${type==="error"?"bg-red-600":"bg-emerald-600"}`;
+  d.textContent=message;document.getElementById("toastWrap").appendChild(d);setTimeout(()=>d.remove(),4000);
+}
+function escHtml(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
+async function api(url, opts={}){
+  const r=await fetch(url,opts); const d=await r.json();
+  if(!r.ok){throw new Error(d.error||d.detail?.error||d.detail||"Request failed");}
+  return d;
+}
+function showTab(name){
+  activeTab=name;
+  document.querySelectorAll(".tab-content").forEach(x=>x.classList.add("hidden"));
+  document.getElementById(`tab-${name}`).classList.remove("hidden");
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("bg-[#334155]",b.dataset.tab===name));
+  if(name==="health") loadHealth();
+  if(name==="users") loadUsers();
+  if(name==="queries") loadQueries();
+  if(name==="files") loadAdminFiles();
+  if(name==="logs") loadLogs();
+}
+function card(title,val,extra=""){return `<div class="bg-[#1E293B] border border-[#334155] rounded-xl p-3"><div class="text-xs text-slate-400">${title}</div><div class="text-xl font-bold">${val}</div><div class="text-xs text-slate-300">${extra}</div></div>`;}
+async function loadHealth(){
+  try{
+    const d=await api("/admin/health");
+    const dot=d.ollama_running?'<span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span> Running':'<span class="inline-block w-2 h-2 rounded-full bg-red-500"></span> Offline';
+    document.getElementById("healthCards").innerHTML=
+      card("Uptime",d.uptime)+card("Ollama Status",dot,d.ollama_model)+card("DB Size",`${d.db_size_kb} KB`)+card("Uploads Size",`${d.uploads_size_kb} KB`)+card("Total Users",d.total_users)+card("Active Today",d.active_today);
+    document.getElementById("platformInfo").textContent=`Python: ${d.python_version} | Platform: ${d.platform}`;
+  }catch(e){toast(e.message,"error");}
+}
+async function loadUsers(){
+  try{
+    const d=await api("/admin/users");
+    const b=document.getElementById("usersBody"); b.innerHTML="";
+    (d.items||[]).forEach(u=>{
+      const tr=document.createElement("tr"); tr.className="border-t border-[#334155]";
+      tr.innerHTML=`<td class="p-3">${u.id}</td><td class="p-3">${escHtml(u.username)}</td><td class="p-3">${escHtml(u.created_at||"")}</td><td class="p-3">${escHtml(u.last_login||"-")}</td><td class="p-3">${u.doc_count||0}</td><td class="p-3">${u.query_count||0}</td><td class="p-3">${u.is_active?'<span class="text-emerald-400">Active</span>':'<span class="text-red-400">Disabled</span>'}</td><td class="p-3 space-x-1"><button onclick="openReset(${u.id})" class="px-2 py-1 bg-blue-600 rounded text-xs">Reset Password</button><button onclick="toggleUser(${u.id})" class="px-2 py-1 bg-yellow-600 rounded text-xs">${u.is_active?'Disable':'Enable'}</button><button onclick="deleteUser(${u.id})" class="px-2 py-1 bg-red-600 rounded text-xs">Delete</button></td>`;
+      b.appendChild(tr);
+    });
+  }catch(e){toast(e.message,"error");}
+}
+function openAddUser(){const m=document.getElementById("addModal");m.classList.remove("hidden");m.classList.add("flex");}
+function openReset(uid){document.getElementById("resetUid").value=uid;const m=document.getElementById("resetModal");m.classList.remove("hidden");m.classList.add("flex");}
+function closeModals(){["addModal","resetModal"].forEach(id=>{const m=document.getElementById(id);m.classList.add("hidden");m.classList.remove("flex");});}
+async function addUser(){
+  try{
+    const username=document.getElementById("newUserName").value.trim();
+    const password=document.getElementById("newUserPw").value;
+    const d=await api("/admin/users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});
+    if(d.error) throw new Error(d.error);
+    toast("User created"); closeModals(); loadUsers();
+  }catch(e){toast(e.message,"error");}
+}
+async function doReset(){
+  try{
+    const uid=document.getElementById("resetUid").value;
+    const password=document.getElementById("resetPw").value;
+    const d=await api(`/admin/users/${uid}/reset-password`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password})});
+    if(d.error) throw new Error(d.error);
+    toast("Password reset"); closeModals();
+  }catch(e){toast(e.message,"error");}
+}
+async function toggleUser(uid){
+  try{await api(`/admin/users/${uid}/toggle`,{method:"POST"});toast("User updated");loadUsers();}catch(e){toast(e.message,"error");}
+}
+async function deleteUser(uid){
+  if(!confirm("Delete this user and all data?")) return;
+  try{await api(`/admin/users/${uid}`,{method:"DELETE"});toast("User deleted");loadUsers();}catch(e){toast(e.message,"error");}
+}
+async function loadQueries(){
+  try{
+    const username=document.getElementById("qUser").value.trim();
+    const keyword=document.getElementById("qKeyword").value.trim();
+    const d=await api(`/admin/queries?username=${encodeURIComponent(username)}&keyword=${encodeURIComponent(keyword)}&page=1`);
+    const b=document.getElementById("queriesBody"); b.innerHTML="";
+    (d.items||[]).forEach(q=>{
+      const tr=document.createElement("tr");
+      tr.className="border-t border-[#334155] cursor-pointer hover:bg-[#0F172A]";
+      tr.innerHTML=`<td class="p-3">${escHtml(q.created_at||"")}</td><td class="p-3">${escHtml(q.username||"")}</td><td class="p-3">${escHtml((q.query_text||"").slice(0,80))}</td><td class="p-3">${q.response_time_ms||0} ms</td>`;
+      tr.onclick=()=>{
+        const nxt=tr.nextElementSibling;
+        if(nxt && nxt.classList.contains("expanded")){nxt.remove();return;}
+        const ex=document.createElement("tr");
+        ex.className="expanded border-t border-[#334155] bg-[#0F172A]";
+        ex.innerHTML=`<td colspan="4" class="p-3"><div><b>Question:</b> ${escHtml(q.query_text||"")}</div><div class="mt-2"><b>Answer:</b> ${escHtml(q.response_text||"")}</div></td>`;
+        tr.after(ex);
+      };
+      b.appendChild(tr);
+    });
+  }catch(e){toast(e.message,"error");}
+}
+async function loadAdminFiles(){
+  try{
+    const d=await api("/admin/files");
+    const b=document.getElementById("filesBody"); b.innerHTML="";
+    (d.items||[]).forEach(f=>{
+      const tr=document.createElement("tr"); tr.className="border-t border-[#334155]";
+      tr.innerHTML=`<td class="p-3">${escHtml(f.username)}</td><td class="p-3">${escHtml(f.filename)}</td><td class="p-3">${escHtml(f.file_type)}</td><td class="p-3">${Number(f.size_kb||0).toFixed(1)} KB</td><td class="p-3">${escHtml(f.upload_date||"")}</td><td class="p-3">${escHtml(f.status||"")}</td>`;
+      b.appendChild(tr);
+    });
+  }catch(e){toast(e.message,"error");}
+}
+async function loadLogs(){
+  try{
+    const d=await api("/admin/logs");
+    const pre=document.getElementById("logPre");
+    const html=escHtml(d.logs||"")
+      .replace(/INFO/g,'<span style="color:#9ca3af">INFO</span>')
+      .replace(/WARNING/g,'<span style="color:#facc15">WARNING</span>')
+      .replace(/ERROR/g,'<span style="color:#f87171">ERROR</span>');
+    pre.innerHTML=html;
+    pre.scrollTop=pre.scrollHeight;
+  }catch(e){toast(e.message,"error");}
+}
+
+document.querySelectorAll(".tab-btn").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.tab)));
+showTab("health");
+setInterval(()=>{if(activeTab==="health") loadHealth();},30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prof. AI Assistant - Login</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: #0F172A;
+      color: #0f172a;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      padding: 28px;
+      border-top: 5px solid #F59E0B;
+    }
+    .icon { font-size: 52px; text-align: center; margin-bottom: 8px; }
+    h1 { margin: 0; text-align: center; color: #0f172a; }
+    .tagline { text-align: center; color: #475569; margin: 8px 0 20px; }
+    label { display: block; margin: 12px 0 6px; color: #334155; font-weight: 600; }
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 15px;
+      outline: none;
+    }
+    input:focus { border-color: #F59E0B; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2); }
+    button {
+      width: 100%;
+      margin-top: 18px;
+      border: 0;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #F59E0B;
+      color: #111827;
+    }
+    .footer { margin-top: 18px; text-align: center; color: #64748b; font-size: 13px; }
+    .error {
+      display: none;
+      margin-bottom: 12px;
+      border: 1px solid #fecaca;
+      background: #fee2e2;
+      color: #991b1b;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 14px;
+    }
+    .shake { animation: shake .32s linear 1; }
+    @keyframes shake {
+      0%{ transform: translateX(0) } 25%{ transform: translateX(-6px) }
+      50%{ transform: translateX(6px) } 75%{ transform: translateX(-3px) }
+      100%{ transform: translateX(0) }
+    }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="icon">🎓</div>
+    <h1>Prof. AI Assistant</h1>
+    <div class="tagline">Your personal course knowledge base</div>
+    <div id="errorBox" class="error">Incorrect username or password. Please try again.</div>
+    <form method="POST" action="/login">
+      <label for="username">Username</label>
+      <input id="username" name="username" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <button type="submit">Sign In</button>
+    </form>
+    <div class="footer">Secure · Private · 100% Offline</div>
+  </div>
+  <script>
+    const hasError = new URLSearchParams(window.location.search).get("error") === "1";
+    if (hasError) {
+      document.getElementById("errorBox").style.display = "block";
+      document.getElementById("card").classList.add("shake");
+    }
+  </script>
+</body>
+</html>
