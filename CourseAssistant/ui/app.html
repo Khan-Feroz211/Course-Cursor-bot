@@ -6,162 +6,355 @@
   <title>Prof. AI Assistant</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    :root { --c1:#6366f1;--c2:#8b5cf6;--c3:#06b6d4;--c4:#f59e0b;--c5:#10b981; }
-    body { background: #060b18 !important; }
+    :root {
+      --c1:#6366f1; --c2:#8b5cf6; --c3:#06b6d4; --c4:#f59e0b; --c5:#10b981; --c6:#ec4899;
+      --bg:#030712; --surface:#0f172a; --card:#0a1628;
+    }
+    * { box-sizing: border-box; }
 
-    /* RGB animated sidebar glow border */
-    aside {
-      border-right: 2px solid transparent !important;
-      background: linear-gradient(#111827,#111827) padding-box,
-                  linear-gradient(180deg,var(--c1),var(--c2),var(--c3)) border-box !important;
+    /* ═══ BODY + ANIMATED BACKGROUND ═══ */
+    body {
+      background: var(--bg) !important;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 15% 15%, rgba(99,102,241,0.10) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 60% at 85% 80%, rgba(139,92,246,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 55% 5%,  rgba(6,182,212,0.06) 0%, transparent 50%);
+      min-height: 100vh;
+    }
+    body::before, body::after {
+      content: "";
+      position: fixed;
+      border-radius: 50%;
+      opacity: 0.07;
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::before {
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, var(--c1), transparent 70%);
+      top: -250px; left: -150px;
+      animation: orbFloat 22s ease-in-out infinite;
+    }
+    body::after {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, var(--c2), transparent 70%);
+      bottom: -150px; right: -120px;
+      animation: orbFloat 18s ease-in-out infinite reverse;
+    }
+    @keyframes orbFloat {
+      0%,100%{ transform: translate(0,0) scale(1); }
+      33%    { transform: translate(50px,40px) scale(1.06); }
+      66%    { transform: translate(-30px,60px) scale(0.94); }
     }
 
-    /* Animated logo gradient */
+    /* ═══ SIDEBAR ═══ */
+    aside {
+      position: relative; z-index: 2;
+      background: linear-gradient(180deg,#070e22 0%,#0a1428 55%,#070e22 100%) !important;
+      border-right: 1px solid rgba(99,102,241,0.25) !important;
+      box-shadow: 4px 0 40px rgba(99,102,241,0.12), inset -1px 0 0 rgba(99,102,241,0.15);
+      flex-shrink: 0;
+    }
+    aside::before {
+      content:""; position:absolute; inset:0; pointer-events:none;
+      background: linear-gradient(180deg,
+        rgba(99,102,241,0.06) 0%,rgba(139,92,246,0.04) 50%,rgba(6,182,212,0.06) 100%);
+    }
+
+    /* ═══ LOGO ═══ */
     .logo-text {
-      background: linear-gradient(135deg,#a5b4fc,#c4b5fd,#67e8f9,#f59e0b);
-      background-size: 300% 300%;
+      background: linear-gradient(135deg,#a5b4fc,#c4b5fd,#67e8f9,#fbbf24,#f0abfc,#a5b4fc);
+      background-size: 400% 400%;
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      animation: gradShift 4s ease infinite;
+      animation: gradShift 5s ease infinite;
     }
     @keyframes gradShift {
-      0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}
+      0%  {background-position:0%   50%}
+      50% {background-position:100% 50%}
+      100%{background-position:0%   50%}
     }
 
-    /* Tab button active with glow */
+    /* ═══ TAB BUTTONS ═══ */
     .tab-btn {
-      transition: all 0.2s ease;
+      transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
       border: 1px solid transparent;
+      color: #64748b;
+      font-weight: 500;
+      position: relative;
+      overflow: hidden;
     }
+    .tab-btn::before {
+      content:""; position:absolute;
+      left: -100%; top:0; bottom:0; width:3px;
+      background: linear-gradient(180deg,var(--c1),var(--c3));
+      transition: left 0.25s ease;
+      border-radius: 0 2px 2px 0;
+    }
+    .tab-btn.active-tab::before { left:0; }
     .tab-btn.active-tab {
-      background: linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.25)) !important;
-      border-color: rgba(99,102,241,0.5) !important;
+      background: linear-gradient(135deg,rgba(99,102,241,0.20),rgba(139,92,246,0.12)) !important;
+      border-color: rgba(99,102,241,0.45) !important;
       color: #a5b4fc !important;
-      box-shadow: 0 0 12px rgba(99,102,241,0.2);
+      box-shadow: 0 0 24px rgba(99,102,241,0.18), inset 0 1px 0 rgba(255,255,255,0.04);
     }
-    .tab-btn:hover { background: rgba(99,102,241,0.1) !important; }
+    .tab-btn:not(.active-tab):hover {
+      background: rgba(99,102,241,0.09) !important;
+      border-color: rgba(99,102,241,0.25) !important;
+      color: #c7d2fe !important;
+      transform: translateX(3px);
+    }
 
-    /* Avatar RGB ring */
+    /* ═══ AVATAR ═══ */
     #avatar {
-      background: linear-gradient(135deg,var(--c1),var(--c2)) !important;
-      box-shadow: 0 0 14px rgba(99,102,241,0.5);
-      animation: ringPulse 2.5s ease-in-out infinite;
+      background: linear-gradient(135deg,var(--c1),var(--c2),var(--c3)) !important;
+      background-size: 200% 200% !important;
+      animation: avatarGrad 4s ease infinite, ringPulse 2.8s ease-in-out infinite;
     }
+    @keyframes avatarGrad { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
     @keyframes ringPulse {
-      0%,100%{box-shadow:0 0 10px rgba(99,102,241,0.4)}
-      50%{box-shadow:0 0 22px rgba(139,92,246,0.7)}
+      0%,100%{box-shadow:0 0 0 2px rgba(99,102,241,0.35), 0 0 12px rgba(99,102,241,0.3)}
+      50%    {box-shadow:0 0 0 4px rgba(139,92,246,0.5), 0 0 28px rgba(139,92,246,0.5)}
     }
 
-    /* Card panels */
-    .panel-card {
-      background: rgba(17,24,39,0.8) !important;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(99,102,241,0.15) !important;
-      transition: border-color 0.3s, box-shadow 0.3s;
-    }
-    .panel-card:hover { border-color: rgba(99,102,241,0.35) !important; box-shadow: 0 0 20px rgba(99,102,241,0.1); }
+    /* ═══ MAIN AREA ═══ */
+    main { background: transparent; position:relative; z-index:1; }
 
-    /* Send button */
-    #sendBtn {
-      background: linear-gradient(135deg,var(--c1),var(--c2)) !important;
-      color: #fff !important;
-      transition: transform 0.15s, box-shadow 0.2s;
-      box-shadow: 0 4px 15px rgba(99,102,241,0.4);
+    /* ═══ CARDS ═══ */
+    .bg-\[\#1E293B\] {
+      background: linear-gradient(135deg,rgba(8,14,32,0.97),rgba(12,20,44,0.95)) !important;
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(99,102,241,0.14) !important;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
     }
-    #sendBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(99,102,241,0.6); }
+    .bg-\[\#1E293B\]:hover {
+      border-color: rgba(99,102,241,0.32) !important;
+      box-shadow: 0 4px 40px rgba(99,102,241,0.08);
+    }
 
-    /* Drop zone hover */
+    /* ═══ DROP ZONE ═══ */
     #dropZone {
-      transition: all 0.3s ease;
-      background: rgba(17,24,39,0.5);
+      background: linear-gradient(135deg,rgba(6,11,24,0.7),rgba(12,20,44,0.6));
+      border: 2px dashed rgba(99,102,241,0.25) !important;
+      transition: all 0.35s ease;
+      position: relative; overflow: hidden;
+    }
+    #dropZone::after {
+      content:""; position:absolute; inset:0;
+      background: linear-gradient(45deg,rgba(99,102,241,0.03) 0%,transparent 50%,rgba(139,92,246,0.03) 100%);
+      pointer-events:none;
     }
     #dropZone:hover {
-      border-color: var(--c1) !important;
-      background: rgba(99,102,241,0.06);
-      box-shadow: 0 0 24px rgba(99,102,241,0.15);
+      border-color: rgba(99,102,241,0.7) !important;
+      background: rgba(99,102,241,0.07) !important;
+      box-shadow: 0 0 40px rgba(99,102,241,0.12), inset 0 0 40px rgba(99,102,241,0.05);
     }
 
-    /* AI chat bubble */
-    .ai-bubble {
-      background: rgba(17,24,39,0.9) !important;
-      border: 1px solid rgba(99,102,241,0.2) !important;
-      animation: bubbleIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+    /* ═══ SEND BUTTON ═══ */
+    #sendBtn {
+      background: linear-gradient(135deg,var(--c1),var(--c2),var(--c3)) !important;
+      background-size: 200% 200% !important;
+      animation: gradShift 4s ease infinite;
+      color: #fff !important; font-weight:700;
+      transition: transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 22px rgba(99,102,241,0.45);
+      border: none;
     }
-    .user-bubble {
-      background: linear-gradient(135deg,var(--c1),var(--c2)) !important;
-      animation: bubbleIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
-      box-shadow: 0 4px 12px rgba(99,102,241,0.3);
-    }
-    @keyframes bubbleIn {
-      from { opacity:0; transform:translateY(12px) scale(0.95); }
-      to   { opacity:1; transform:translateY(0) scale(1); }
-    }
+    #sendBtn:hover:not(:disabled) { transform: translateY(-2px) scale(1.03); box-shadow: 0 8px 32px rgba(99,102,241,0.65); }
+    #sendBtn:disabled { opacity: 0.55; cursor: not-allowed; }
 
-    /* Offline banner */
-    #offlineBanner {
-      background: rgba(234,179,8,0.12) !important;
-      border: 1px solid rgba(234,179,8,0.4) !important;
-      animation: pulse 2s ease-in-out infinite;
-    }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
-
-    /* Toast animations */
-    #toastWrap > div { animation: toastIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
-    @keyframes toastIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.4); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.7); }
-
-    /* Page fade in */
-    .flex.min-h-screen { animation: pageIn 0.5s ease both; }
-    @keyframes pageIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-
-    /* Analytics stat cards */
-    .stat-card {
-      background: rgba(17,24,39,0.8) !important;
-      border: 1px solid rgba(99,102,241,0.2) !important;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(99,102,241,0.2); }
-
-    /* Main content bg */
-    main { background: linear-gradient(135deg, rgba(6,11,24,1) 0%, rgba(15,23,42,1) 100%); }
-
-    /* Section fade */
-    .tab-content:not(.hidden) { animation: fadeIn 0.3s ease both; }
-    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-
-    /* Input focus */
-    textarea, select, input[type="text"], input[type="password"] {
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    textarea:focus, select:focus, input:focus {
-      border-color: rgba(99,102,241,0.6) !important;
-      box-shadow: 0 0 0 3px rgba(99,102,241,0.12) !important;
-      outline: none;
-    }
-
-    /* Graph button */
+    /* ═══ GRAPH/ACTION BUTTONS ═══ */
     #graphBtn {
       background: linear-gradient(135deg,var(--c1),var(--c2)) !important;
       color: #fff !important;
-      transition: transform 0.15s, box-shadow 0.2s;
-      box-shadow: 0 4px 15px rgba(99,102,241,0.35);
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 22px rgba(99,102,241,0.38);
     }
-    #graphBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(99,102,241,0.55); }
+    #graphBtn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(99,102,241,0.6); }
 
-    /* AI status dot */
-    #aiDot { animation: dotBlink 2s ease-in-out infinite; }
-    @keyframes dotBlink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    /* ═══ DOWNLOAD BUTTONS ═══ */
+    .dl-btn {
+      transition: all 0.22s cubic-bezier(0.4,0,0.2,1);
+      font-weight: 600; position: relative; overflow: hidden;
+    }
+    .dl-btn::after {
+      content:""; position:absolute;
+      top:-50%; left:-60%; width:40%; height:200%;
+      background: rgba(255,255,255,0.13);
+      transform: skewX(-20deg);
+      transition: left 0.5s ease;
+    }
+    .dl-btn:hover::after { left:130%; }
+    .dl-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
 
-    /* Table row hover */
+    /* ═══ CHAT BUBBLES ═══ */
+    .ai-bubble {
+      background: linear-gradient(135deg,rgba(8,14,32,0.97),rgba(14,22,48,0.92)) !important;
+      border: 1px solid rgba(99,102,241,0.28) !important;
+      box-shadow: 0 2px 20px rgba(99,102,241,0.10);
+      animation: bubbleIn 0.38s cubic-bezier(0.34,1.56,0.64,1) both;
+      position: relative;
+    }
+    .ai-bubble::before {
+      content:""; position:absolute;
+      left:-1px; top:14px; width:2px; height:28px;
+      background: linear-gradient(180deg,var(--c1),var(--c3));
+      border-radius:0 1px 1px 0;
+    }
+    .user-bubble {
+      background: linear-gradient(135deg,var(--c1),var(--c2),var(--c6)) !important;
+      background-size: 200% 200% !important;
+      animation: bubbleIn 0.38s cubic-bezier(0.34,1.56,0.64,1) both, gradShift 6s ease infinite;
+      box-shadow: 0 4px 24px rgba(99,102,241,0.38);
+    }
+    @keyframes bubbleIn {
+      from { opacity:0; transform:translateY(18px) scale(0.90); }
+      to   { opacity:1; transform:translateY(0)   scale(1); }
+    }
+
+    /* ═══ CHAT INPUT ═══ */
+    #chatInput {
+      background: linear-gradient(135deg,rgba(6,11,24,0.9),rgba(12,20,44,0.85)) !important;
+      border: 1px solid rgba(99,102,241,0.22) !important;
+    }
+    #chatInput:focus {
+      border-color: rgba(99,102,241,0.65) !important;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.13), 0 0 24px rgba(99,102,241,0.10) !important;
+    }
+
+    /* ═══ STAT CARDS ═══ */
+    .stat-card {
+      position: relative; overflow: hidden;
+      background: linear-gradient(135deg,rgba(8,14,32,0.97),rgba(12,22,48,0.95)) !important;
+      border: 1px solid rgba(99,102,241,0.18) !important;
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+    .stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(99,102,241,0.22); }
+    .stat-card::before {
+      content:""; position:absolute;
+      inset:-1px; border-radius:inherit;
+      background: linear-gradient(135deg,var(--c1),var(--c2),var(--c3));
+      opacity:0; transition: opacity 0.3s;
+      z-index:-1;
+    }
+    .stat-card:hover::before { opacity:0.15; }
+    .stat-val {
+      background: linear-gradient(135deg,#fff,#a5b4fc);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+
+    /* ═══ ANALYTICS CHARTS ═══ */
+    .chart-card {
+      background: linear-gradient(135deg,rgba(8,14,32,0.97),rgba(12,22,48,0.95)) !important;
+      border: 1px solid rgba(99,102,241,0.15) !important;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .chart-card:hover { border-color: rgba(99,102,241,0.35) !important; box-shadow: 0 0 30px rgba(99,102,241,0.10); }
+
+    /* ═══ OFFLINE BANNER ═══ */
+    #offlineBanner {
+      background: linear-gradient(135deg,rgba(234,179,8,0.1),rgba(245,158,11,0.07)) !important;
+      border: 1px solid rgba(234,179,8,0.45) !important;
+      box-shadow: 0 0 24px rgba(234,179,8,0.10);
+      animation: warnPulse 2.5s ease-in-out infinite;
+    }
+    @keyframes warnPulse { 0%,100%{opacity:1} 50%{opacity:0.72} }
+
+    /* ═══ GRAPH IMAGE ═══ */
+    #graphImage {
+      border-radius: 12px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(99,102,241,0.22);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    #graphImage:hover { transform:scale(1.01); box-shadow:0 16px 56px rgba(0,0,0,0.65), 0 0 0 1px rgba(99,102,241,0.45); }
+
+    /* ═══ EXPORT DROPDOWN ═══ */
+    #exportMenu {
+      background: linear-gradient(135deg,rgba(8,14,32,0.99),rgba(12,22,48,0.99));
+      border: 1px solid rgba(99,102,241,0.35) !important;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.10);
+      animation: dropIn 0.22s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes dropIn { from{opacity:0;transform:translateY(-10px) scale(0.94)} to{opacity:1;transform:translateY(0) scale(1)} }
+    .export-item {
+      transition: background 0.15s, color 0.15s;
+      border-bottom: 1px solid rgba(99,102,241,0.10);
+    }
+    .export-item:last-child { border-bottom: none; }
+    .export-item:hover { background: rgba(99,102,241,0.12) !important; color: #a5b4fc; }
+
+    /* ═══ TOAST ═══ */
+    #toastWrap > div {
+      animation: toastIn 0.38s cubic-bezier(0.34,1.56,0.64,1) both;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+    }
+    @keyframes toastIn { from{opacity:0;transform:translateX(55px) scale(0.88)} to{opacity:1;transform:translateX(0) scale(1)} }
+
+    /* ═══ TABLE ═══ */
+    table { border-collapse: separate; border-spacing: 0; }
+    thead th {
+      background: linear-gradient(135deg,rgba(4,8,20,0.97),rgba(8,16,36,0.95)) !important;
+      border-bottom: 1px solid rgba(99,102,241,0.22) !important;
+      font-size: 0.68rem; letter-spacing: 0.09em;
+      text-transform: uppercase; color: #64748b !important;
+    }
     tbody tr { transition: background 0.15s; }
     tbody tr:hover { background: rgba(99,102,241,0.06) !important; }
+
+    /* ═══ SCROLLBAR ═══ */
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background: rgba(3,7,18,0.8); }
+    ::-webkit-scrollbar-thumb { background: linear-gradient(180deg,var(--c1),var(--c2)); border-radius:3px; }
+    ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg,var(--c2),var(--c3)); }
+
+    /* ═══ PAGE / SECTION TRANSITIONS ═══ */
+    .flex.min-h-screen { animation: pageIn 0.6s cubic-bezier(0.22,1,0.36,1) both; }
+    @keyframes pageIn { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+    .tab-content:not(.hidden) { animation: fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ═══ INPUT FOCUS ═══ */
+    textarea, select, input[type="text"], input[type="password"] { transition: border-color 0.2s, box-shadow 0.2s; }
+    textarea:focus, select:focus, input:focus {
+      border-color: rgba(99,102,241,0.65) !important;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.13) !important;
+      outline: none;
+    }
+
+    /* ═══ AI DOT ═══ */
+    #aiDot {
+      animation: dotBlink 2.2s ease-in-out infinite;
+      filter: drop-shadow(0 0 4px currentColor);
+    }
+    @keyframes dotBlink {
+      0%,100%{opacity:1; filter:drop-shadow(0 0 5px currentColor)}
+      50%{opacity:0.25; filter:none}
+    }
+
+    /* ═══ UPLOAD PROGRESS BAR ═══ */
+    .upload-bar {
+      background: linear-gradient(90deg,var(--c1),var(--c2),var(--c3),var(--c1));
+      background-size: 300% 100%;
+      animation: barShimmer 1.8s linear infinite;
+    }
+    @keyframes barShimmer { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+
+    /* ═══ RESPONSIVE ═══ */
+    @media (max-width: 900px) {
+      aside { width: 210px !important; }
+    }
+    @media (max-width: 700px) {
+      aside { width: 100% !important; height: auto !important; flex-direction: row; }
+      aside .p-5 { padding: 0.75rem 1rem; }
+      aside nav { flex-direction: row; overflow-x: auto; padding: 0.4rem; gap: 0.25rem; }
+      aside nav .tab-btn { white-space: nowrap; flex-shrink:0; padding: 0.45rem 0.9rem; font-size:0.82rem; }
+      .flex.min-h-screen { flex-direction: column; }
+      main { padding: 1rem !important; }
+    }
   </style>
 </head>
 <body class="bg-[#060b18] text-[#F8FAFC]">
@@ -215,9 +408,18 @@
 
       <section id="tab-chat" class="tab-content hidden">
         <div id="offlineBanner" class="hidden mb-3 bg-yellow-500/20 border border-yellow-500 text-yellow-200 p-3 rounded">⚠️ AI model offline — please restart the launcher.</div>
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="font-bold text-lg">Chat with your documents</h2>
-          <button onclick="clearChat()" class="px-3 py-2 text-sm bg-red-600 hover:bg-red-500 rounded">🗑 Clear Chat</button>
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h2 class="font-bold text-lg logo-text">💬 Chat with your documents</h2>
+          <div class="flex items-center gap-2">
+            <div class="relative" id="exportWrap">
+              <button onclick="toggleExportMenu()" class="px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-1.5 transition-all" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;box-shadow:0 4px 14px rgba(99,102,241,0.35)">⬇ Export <span style="font-size:0.65rem;opacity:0.8">▾</span></button>
+              <div id="exportMenu" class="hidden absolute right-0 top-full mt-1.5 rounded-xl z-20 w-44 overflow-hidden">
+                <button onclick="exportChat('txt')" class="export-item w-full text-left px-4 py-2.5 text-sm flex items-center gap-2">📝 Save as TXT</button>
+                <button onclick="exportChat('pdf')" class="export-item w-full text-left px-4 py-2.5 text-sm flex items-center gap-2">📄 Save as PDF</button>
+              </div>
+            </div>
+            <button onclick="clearChat()" class="px-3 py-2 text-sm font-semibold rounded-lg transition-all" style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;box-shadow:0 4px 14px rgba(220,38,38,0.3)">🗑 Clear</button>
+          </div>
         </div>
         <div id="chatBox" class="min-h-[400px] max-h-[60vh] overflow-y-auto bg-[#1E293B] border border-[#334155] rounded-xl p-4 space-y-4">
           <div id="chatHint" class="text-slate-400 text-center mt-24">Ask anything about your course materials...</div>
@@ -229,17 +431,17 @@
       </section>
 
       <section id="tab-analytics" class="tab-content hidden space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><div class="text-slate-400 text-xs">Total Documents</div><div id="aTotalDocs" class="text-2xl font-bold">0</div></div>
-          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><div class="text-slate-400 text-xs">Total Questions</div><div id="aTotalQueries" class="text-2xl font-bold">0</div></div>
-          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><div class="text-slate-400 text-xs">Top Topic</div><div id="aTopTopic" class="text-xl font-bold">N/A</div></div>
-          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><div class="text-slate-400 text-xs">Avg Speed</div><div id="aAvg" class="text-2xl font-bold">0 ms</div></div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="stat-card rounded-xl p-4 cursor-default"><div class="text-slate-400 text-xs mb-1 uppercase tracking-wide">📚 Documents</div><div id="aTotalDocs" class="text-3xl font-bold stat-val">0</div></div>
+          <div class="stat-card rounded-xl p-4 cursor-default" style="border-color:rgba(6,182,212,0.2)!important"><div class="text-slate-400 text-xs mb-1 uppercase tracking-wide">💬 Questions</div><div id="aTotalQueries" class="text-3xl font-bold" style="background:linear-gradient(135deg,#fff,#67e8f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">0</div></div>
+          <div class="stat-card rounded-xl p-4 cursor-default" style="border-color:rgba(245,158,11,0.2)!important"><div class="text-slate-400 text-xs mb-1 uppercase tracking-wide">🔥 Top Topic</div><div id="aTopTopic" class="text-xl font-bold" style="background:linear-gradient(135deg,#fff,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">N/A</div></div>
+          <div class="stat-card rounded-xl p-4 cursor-default" style="border-color:rgba(16,185,129,0.2)!important"><div class="text-slate-400 text-xs mb-1 uppercase tracking-wide">⚡ Avg Speed</div><div id="aAvg" class="text-3xl font-bold" style="background:linear-gradient(135deg,#fff,#6ee7b7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">0 ms</div></div>
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><canvas id="chartKeywords"></canvas></div>
-          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><canvas id="chartTypes"></canvas></div>
-          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><canvas id="chartDays"></canvas></div>
-          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><canvas id="chartDocs"></canvas></div>
+          <div class="chart-card rounded-xl p-4"><canvas id="chartKeywords"></canvas></div>
+          <div class="chart-card rounded-xl p-4"><canvas id="chartTypes"></canvas></div>
+          <div class="chart-card rounded-xl p-4"><canvas id="chartDays"></canvas></div>
+          <div class="chart-card rounded-xl p-4"><canvas id="chartDocs"></canvas></div>
         </div>
         <div class="bg-[#1E293B] border border-[#334155] rounded-xl overflow-hidden">
           <table class="w-full text-sm">
@@ -260,9 +462,14 @@
           </div>
           <button id="graphBtn" onclick="generateGraph()" class="px-4 py-2 bg-[#F59E0B] text-black rounded font-semibold">📊 Generate Graph</button>
         </div>
-        <div id="graphResult" class="hidden bg-[#1E293B] border border-[#334155] rounded-xl p-4">
-          <img id="graphImage" class="w-full max-w-4xl mx-auto rounded border border-[#334155]">
-          <div class="mt-3"><button onclick="downloadGraph()" class="px-4 py-2 bg-emerald-600 rounded">⬇ Download PNG</button></div>
+        <div id="graphResult" class="hidden bg-[#1E293B] border border-[#334155] rounded-xl p-4 space-y-4">
+          <div class="text-xs text-slate-400 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block"></span>Graph generated successfully</div>
+          <img id="graphImage" class="w-full max-w-4xl mx-auto rounded">
+          <div class="flex flex-wrap gap-2 pt-1">
+            <button onclick="downloadGraph('png')" class="dl-btn px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 4px 16px rgba(16,185,129,0.35)">🖼 Download PNG</button>
+            <button onclick="downloadGraph('pdf')" class="dl-btn px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2" style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;box-shadow:0 4px 16px rgba(59,130,246,0.35)">📄 Download PDF</button>
+            <button onclick="downloadGraph('svg')" class="dl-btn px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;box-shadow:0 4px 16px rgba(139,92,246,0.35)">✦ Download SVG</button>
+          </div>
         </div>
       </section>
 
@@ -371,7 +578,7 @@ async function uploadFiles(fileList){
   for(const file of fileList){
     const row=document.createElement("div");
     row.className="bg-[#0F172A] border border-[#334155] rounded p-2";
-    row.innerHTML=`<div class="text-sm mb-1">${escHtml(file.name)}</div><div class="h-2 bg-[#334155] rounded overflow-hidden"><div class="h-full bg-[#F59E0B] animate-pulse" style="width:100%"></div></div><div class="text-xs mt-1 text-slate-300">Uploading...</div>`;
+    row.innerHTML=`<div class="text-sm mb-1">${escHtml(file.name)}</div><div class="h-2 bg-[#1e2a44] rounded-full overflow-hidden"><div class="h-full upload-bar rounded-full" style="width:100%"></div></div><div class="text-xs mt-1 text-slate-300">Uploading...</div>`;
     wrap.appendChild(row);
     const fd=new FormData(); fd.append("file",file);
     try{
@@ -507,12 +714,124 @@ async function generateGraph(){
   }catch(e){ toast(e.message,"error"); }
   finally{ btn.disabled=false; btn.textContent="📊 Generate Graph"; }
 }
-function downloadGraph(){
+function downloadGraph(fmt='png'){
   if(!graphImageData){ toast("No graph to download","error"); return; }
-  const a=document.createElement("a");
-  a.href=`data:image/png;base64,${graphImageData}`;
-  a.download="graph.png";
-  a.click();
+  if(fmt==='png'){
+    const a=document.createElement("a");
+    a.href=`data:image/png;base64,${graphImageData}`;
+    a.download="graph.png"; a.click();
+    toast("Graph saved as PNG");
+  } else if(fmt==='pdf'){
+    try{
+      const {jsPDF}=window.jspdf;
+      const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+      const pw=doc.internal.pageSize.getWidth();
+      const ph=doc.internal.pageSize.getHeight();
+      doc.setFillColor(3,7,18); doc.rect(0,0,pw,ph,'F');
+      doc.addImage(`data:image/png;base64,${graphImageData}`,'PNG',8,8,pw-16,ph-16);
+      doc.setFontSize(7); doc.setTextColor(100,100,140);
+      doc.text(`Prof. AI Assistant — Graph Export · ${new Date().toLocaleString()}`,8,ph-2);
+      doc.save("graph.pdf");
+      toast("Graph saved as PDF");
+    }catch(e){ toast("PDF export failed: "+e.message,"error"); }
+  } else if(fmt==='svg'){
+    const img=document.getElementById("graphImage");
+    const w=img.naturalWidth||800; const h=img.naturalHeight||600;
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" fill="#030712"/><image href="data:image/png;base64,${graphImageData}" width="${w}" height="${h}"/></svg>`;
+    const blob=new Blob([svg],{type:"image/svg+xml"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download="graph.svg"; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    toast("Graph saved as SVG");
+  }
+}
+
+function toggleExportMenu(){
+  const m=document.getElementById("exportMenu");
+  m.classList.toggle("hidden");
+}
+document.addEventListener("click",function(e){
+  const wrap=document.getElementById("exportWrap");
+  if(wrap&&!wrap.contains(e.target)) document.getElementById("exportMenu").classList.add("hidden");
+});
+
+function exportChat(fmt){
+  document.getElementById("exportMenu").classList.add("hidden");
+  const rows=document.querySelectorAll("#chatBox > div");
+  let hasContent=false;
+  rows.forEach(r=>{ if(r.querySelector(".user-bubble")||r.querySelector(".ai-bubble")) hasContent=true; });
+  if(!hasContent){ toast("No chat messages to export","error"); return; }
+
+  if(fmt==='txt'){
+    let text="Prof. AI Assistant — Chat Export\n";
+    text+="Generated: "+new Date().toLocaleString()+"\n";
+    text+="=".repeat(50)+"\n\n";
+    rows.forEach(row=>{
+      const ub=row.querySelector(".user-bubble");
+      const ab=row.querySelector(".ai-bubble");
+      if(ub) text+="You: "+ub.textContent.trim()+"\n\n";
+      if(ab){
+        const body=ab.querySelector(".ai-body");
+        const src=ab.querySelector(".ai-src");
+        text+="Assistant: "+(body?body.textContent.trim():ab.textContent.trim())+"\n";
+        if(src&&src.textContent.trim()) text+=src.textContent.trim()+"\n";
+        text+="\n";
+      }
+    });
+    const blob=new Blob([text],{type:"text/plain"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download="chat_export.txt"; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    toast("Chat saved as TXT");
+
+  } else if(fmt==='pdf'){
+    try{
+      const {jsPDF}=window.jspdf;
+      const doc=new jsPDF({unit:'mm',format:'a4'});
+      const pw=doc.internal.pageSize.getWidth();
+      let y=18;
+      /* Header */
+      doc.setFillColor(3,7,18); doc.rect(0,0,pw,297,'F');
+      doc.setFillColor(10,14,40); doc.rect(0,0,pw,24,'F');
+      doc.setFontSize(15); doc.setTextColor(165,180,252);
+      doc.text("Prof. AI Assistant — Chat Export",10,y-2);
+      doc.setFontSize(8); doc.setTextColor(100,110,160);
+      doc.text("Generated: "+new Date().toLocaleString(),pw-10,y-2,{align:'right'});
+      doc.setDrawColor(80,80,160); doc.setLineWidth(0.3); doc.line(10,y+2,pw-10,y+2); y+=10;
+
+      rows.forEach(row=>{
+        const ub=row.querySelector(".user-bubble");
+        const ab=row.querySelector(".ai-bubble");
+        if(ub){
+          if(y>270){doc.addPage();doc.setFillColor(3,7,18);doc.rect(0,0,pw,297,'F');y=15;}
+          doc.setFontSize(10); doc.setTextColor(165,180,252); doc.text("You",10,y); y+=5;
+          doc.setFontSize(9.5); doc.setTextColor(220,225,255);
+          const lines=doc.splitTextToSize(ub.textContent.trim(),pw-22);
+          lines.forEach(l=>{ if(y>278){doc.addPage();doc.setFillColor(3,7,18);doc.rect(0,0,pw,297,'F');y=15;} doc.text(l,14,y); y+=5; });
+          y+=3;
+        }
+        if(ab){
+          const body=ab.querySelector(".ai-body");
+          const src=ab.querySelector(".ai-src");
+          if(y>270){doc.addPage();doc.setFillColor(3,7,18);doc.rect(0,0,pw,297,'F');y=15;}
+          doc.setFontSize(10); doc.setTextColor(52,211,153); doc.text("Assistant",10,y); y+=5;
+          doc.setFontSize(9.5); doc.setTextColor(200,220,205);
+          const txt=(body?body.textContent.trim():ab.textContent.trim());
+          const lines=doc.splitTextToSize(txt,pw-22);
+          lines.forEach(l=>{ if(y>278){doc.addPage();doc.setFillColor(3,7,18);doc.rect(0,0,pw,297,'F');y=15;} doc.text(l,14,y); y+=5; });
+          if(src&&src.textContent.trim()){
+            doc.setFontSize(8); doc.setTextColor(100,110,160);
+            const sl=doc.splitTextToSize(src.textContent.trim(),pw-22);
+            sl.forEach(l=>{ if(y>280){doc.addPage();doc.setFillColor(3,7,18);doc.rect(0,0,pw,297,'F');y=15;} doc.text(l,14,y); y+=4; });
+          }
+          y+=5;
+          doc.setDrawColor(30,35,70); doc.setLineWidth(0.2); doc.line(10,y-2,pw-10,y-2);
+        }
+      });
+      doc.save("chat_export.pdf");
+      toast("Chat saved as PDF");
+    }catch(e){ toast("PDF export failed: "+e.message,"error"); }
+  }
 }
 async function loadSettings(){
   try{
