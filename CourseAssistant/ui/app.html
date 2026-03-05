@@ -407,7 +407,11 @@
       </section>
 
       <section id="tab-chat" class="tab-content hidden">
-        <div id="offlineBanner" class="hidden mb-3 bg-yellow-500/20 border border-yellow-500 text-yellow-200 p-3 rounded">⚠️ AI model offline — please restart the launcher.</div>
+        <div id="offlineBanner" class="hidden mb-3 p-3 rounded flex items-center gap-2" style="background:rgba(234,179,8,0.10);border:1px solid rgba(234,179,8,0.45);color:#fde68a">⚠️ <span id="offlineMsg">AI model offline — please restart the launcher.</span></div>
+        <div id="initBanner" class="hidden mb-3 p-3 rounded flex items-center gap-2" style="background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.4);color:#c7d2fe">
+          <span class="inline-block w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+          <span>System is initializing — AI will be ready in ~30 seconds. You can ask your question now.</span>
+        </div>
         <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 class="font-bold text-lg logo-text">💬 Chat with your documents</h2>
           <div class="flex items-center gap-2">
@@ -644,15 +648,28 @@ async function sendChat(){
           src.textContent = text ? `📚 Sources: ${text}` : "";
         }
         if(payload.type==="error"){
+          // True AI/Ollama connectivity error
           document.getElementById("offlineBanner").classList.remove("hidden");
+          document.getElementById("offlineMsg").textContent = payload.content || "AI model offline — please restart the launcher.";
           body.innerHTML = `<span class="text-red-400">${escHtml(payload.content)}</span>`;
+        }
+        if(payload.type==="model_error"){
+          // Embedding model still initializing — not an offline error
+          document.getElementById("initBanner").classList.remove("hidden");
+          body.innerHTML = `<span class="text-indigo-300">${escHtml(payload.content)}</span>`;
+        }
+        if(payload.type==="no_context"){
+          // Docs not uploaded / no match — not an offline error
+          body.innerHTML = `<span class="text-amber-300">${escHtml(payload.content)}</span>`;
         }
       }
       const box=document.getElementById("chatBox"); box.scrollTop=box.scrollHeight;
     }
     document.getElementById("aiDot").className="inline-block w-2 h-2 rounded-full bg-emerald-500";
+    document.getElementById("initBanner").classList.add("hidden");
   }catch(e){
     document.getElementById("offlineBanner").classList.remove("hidden");
+    document.getElementById("offlineMsg").textContent = e.message;
     body.innerHTML=`<span class="text-red-400">${escHtml(e.message)}</span>`;
     toast(e.message,"error");
   }finally{
@@ -878,6 +895,37 @@ document.getElementById("fileInput").addEventListener("change",e=>uploadFiles(e.
 
 showTab("documents");
 loadSettings();
+
+// ═══ SYSTEM READINESS POLLING ═══════════════════════════════════════════════
+// Checks /status every 8 seconds until both Ollama and embedding model are ready.
+// Shows the init banner on chat tab and updates the AI dot in real time.
+async function checkSystemReady(){
+  try{
+    const s = await fetch("/status").then(r=>r.json());
+    const dot = document.getElementById("aiDot");
+    const initBanner = document.getElementById("initBanner");
+    if(s.ready){
+      dot.className = "inline-block w-2 h-2 rounded-full bg-emerald-500";
+      dot.title = "AI Ready";
+      initBanner.classList.add("hidden");
+      return true; // stop polling
+    }
+    if(!s.embedding_ready){
+      dot.className = "inline-block w-2 h-2 rounded-full bg-blue-400";
+      dot.title = "Search engine loading...";
+      initBanner.classList.remove("hidden");
+    } else if(!s.ollama_ready){
+      dot.className = "inline-block w-2 h-2 rounded-full bg-yellow-400";
+      dot.title = "Waiting for AI model (Ollama)...";
+      initBanner.classList.remove("hidden");
+    }
+    return false;
+  }catch(e){ return false; }
+}
+(async function pollReady(){
+  const ready = await checkSystemReady();
+  if(!ready) setTimeout(pollReady, 8000);
+})();
 </script>
 </body>
 </html>

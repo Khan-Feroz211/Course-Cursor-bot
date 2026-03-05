@@ -27,6 +27,12 @@ def chat(request: Request, payload: ChatPayload):
         raise HTTPException(status_code=400, detail={"error": "Query is required", "detail": "empty_query"})
 
     async def event_stream():
+        # Ensure embedding model is loaded (auto-retry at request time)
+        if not app_state.ensure_model():
+            yield 'data: {"type":"model_error","content":"\u23f3 AI search engine is still loading. Please wait 30 seconds and try again."}\n\n'
+            yield 'data: {"type":"done"}\n\n'
+            return
+
         started = time.perf_counter()
         answer_parts: list[str] = []
         sources = []
@@ -36,9 +42,10 @@ def chat(request: Request, payload: ChatPayload):
                 try:
                     if event.startswith("data: "):
                         payload_obj = json.loads(event[6:].strip())
-                        if payload_obj.get("type") == "token":
+                        etype = payload_obj.get("type")
+                        if etype == "token":
                             answer_parts.append(payload_obj.get("content", ""))
-                        elif payload_obj.get("type") == "sources":
+                        elif etype == "sources":
                             sources = payload_obj.get("content", []) or []
                 except Exception:
                     logger.debug("Could not parse stream payload line")

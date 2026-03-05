@@ -21,9 +21,15 @@ def _sse(payload: dict) -> str:
 
 async def stream_answer(user_id: int, query: str, model):
     try:
-        matches = search(user_id, query, model, top_k=5)
+        # Guard: embedding model not loaded yet
+        if model is None:
+            yield _sse({"type": "model_error", "content": "⏳ Search engine is still initializing. Please wait 20 seconds and try again."})
+            yield _sse({"type": "done"})
+            return
+
+        matches = search(user_id, query, model, top_k=6)
         if not matches:
-            yield _sse({"type": "error", "content": "I could not find this in your uploaded documents."})
+            yield _sse({"type": "no_context", "content": "📂 No matching content found in your uploaded documents. Please upload relevant course files first."})
             yield _sse({"type": "done"})
             return
 
@@ -44,7 +50,7 @@ async def stream_answer(user_id: int, query: str, model):
         )
         prompt = f"CONTEXT:\n\n{chr(10).join(context_lines)}\n\nQUESTION: {query}"
 
-        async with httpx.AsyncClient(timeout=90.0) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)) as client:
             try:
                 async with client.stream(
                     "POST",
@@ -52,6 +58,7 @@ async def stream_answer(user_id: int, query: str, model):
                     json={
                         "model": OLLAMA_MODEL,
                         "stream": True,
+                        "options": {"num_predict": 1024},
                         "messages": [
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": prompt},
@@ -79,6 +86,10 @@ async def stream_answer(user_id: int, query: str, model):
             except httpx.ConnectError:
                 logger.warning("Ollama connection issue")
                 yield _sse({"type": "error", "content": "Could not connect to Ollama. Please ensure it is running."})
+                yield _sse({"type": "done"})
+            except (httpx.ReadTimeout, httpx.TimeoutException):
+                logger.warning("Ollama response timed out — model is still loading or too slow")
+                yield _sse({"type": "error", "content": "AI is taking too long to respond. The model may still be warming up — please try again in 30 seconds."})
                 yield _sse({"type": "done"})
             except Exception:
                 logger.exception("Ollama streaming error")

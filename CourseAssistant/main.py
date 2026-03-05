@@ -9,6 +9,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
+import app_state
 from api.db import init_db
 from api.routes_admin import router as admin_router
 from api.routes_analytics import router as analytics_router
@@ -81,6 +82,25 @@ async def _warmup_ollama() -> None:
 
 
 app = FastAPI(title="Prof. AI Assistant", version="1.0.0", lifespan=lifespan)
+
+# ── inline status route (before routers so it always works) ──────────────────
+@app.get("/status")
+async def system_status():
+    embedding_ready = app_state.is_model_ready()
+    ollama_ok = False
+    ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as c:
+            r = await c.get(f"{ollama_url}/api/tags")
+            ollama_ok = r.status_code == 200
+    except Exception:
+        ollama_ok = False
+    return {
+        "embedding_ready": embedding_ready,
+        "ollama_ready": ollama_ok,
+        "ready": embedding_ready and ollama_ok,
+    }
+# ─────────────────────────────────────────────────────────────────────────────
 
 app.include_router(auth_router)
 app.include_router(upload_router)
