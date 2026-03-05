@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prof. AI Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root { --c1:#6366f1;--c2:#8b5cf6;--c3:#06b6d4;--c4:#f59e0b;--c5:#10b981; }
+    body { background: #060b18 !important; }
+
+    /* RGB animated sidebar glow border */
+    aside {
+      border-right: 2px solid transparent !important;
+      background: linear-gradient(#111827,#111827) padding-box,
+                  linear-gradient(180deg,var(--c1),var(--c2),var(--c3)) border-box !important;
+    }
+
+    /* Animated logo gradient */
+    .logo-text {
+      background: linear-gradient(135deg,#a5b4fc,#c4b5fd,#67e8f9,#f59e0b);
+      background-size: 300% 300%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: gradShift 4s ease infinite;
+    }
+    @keyframes gradShift {
+      0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}
+    }
+
+    /* Tab button active with glow */
+    .tab-btn {
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+    .tab-btn.active-tab {
+      background: linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.25)) !important;
+      border-color: rgba(99,102,241,0.5) !important;
+      color: #a5b4fc !important;
+      box-shadow: 0 0 12px rgba(99,102,241,0.2);
+    }
+    .tab-btn:hover { background: rgba(99,102,241,0.1) !important; }
+
+    /* Avatar RGB ring */
+    #avatar {
+      background: linear-gradient(135deg,var(--c1),var(--c2)) !important;
+      box-shadow: 0 0 14px rgba(99,102,241,0.5);
+      animation: ringPulse 2.5s ease-in-out infinite;
+    }
+    @keyframes ringPulse {
+      0%,100%{box-shadow:0 0 10px rgba(99,102,241,0.4)}
+      50%{box-shadow:0 0 22px rgba(139,92,246,0.7)}
+    }
+
+    /* Card panels */
+    .panel-card {
+      background: rgba(17,24,39,0.8) !important;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(99,102,241,0.15) !important;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .panel-card:hover { border-color: rgba(99,102,241,0.35) !important; box-shadow: 0 0 20px rgba(99,102,241,0.1); }
+
+    /* Send button */
+    #sendBtn {
+      background: linear-gradient(135deg,var(--c1),var(--c2)) !important;
+      color: #fff !important;
+      transition: transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 15px rgba(99,102,241,0.4);
+    }
+    #sendBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(99,102,241,0.6); }
+
+    /* Drop zone hover */
+    #dropZone {
+      transition: all 0.3s ease;
+      background: rgba(17,24,39,0.5);
+    }
+    #dropZone:hover {
+      border-color: var(--c1) !important;
+      background: rgba(99,102,241,0.06);
+      box-shadow: 0 0 24px rgba(99,102,241,0.15);
+    }
+
+    /* AI chat bubble */
+    .ai-bubble {
+      background: rgba(17,24,39,0.9) !important;
+      border: 1px solid rgba(99,102,241,0.2) !important;
+      animation: bubbleIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    .user-bubble {
+      background: linear-gradient(135deg,var(--c1),var(--c2)) !important;
+      animation: bubbleIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+      box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+    }
+    @keyframes bubbleIn {
+      from { opacity:0; transform:translateY(12px) scale(0.95); }
+      to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+
+    /* Offline banner */
+    #offlineBanner {
+      background: rgba(234,179,8,0.12) !important;
+      border: 1px solid rgba(234,179,8,0.4) !important;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+
+    /* Toast animations */
+    #toastWrap > div { animation: toastIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
+    @keyframes toastIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.4); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.7); }
+
+    /* Page fade in */
+    .flex.min-h-screen { animation: pageIn 0.5s ease both; }
+    @keyframes pageIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+    /* Analytics stat cards */
+    .stat-card {
+      background: rgba(17,24,39,0.8) !important;
+      border: 1px solid rgba(99,102,241,0.2) !important;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(99,102,241,0.2); }
+
+    /* Main content bg */
+    main { background: linear-gradient(135deg, rgba(6,11,24,1) 0%, rgba(15,23,42,1) 100%); }
+
+    /* Section fade */
+    .tab-content:not(.hidden) { animation: fadeIn 0.3s ease both; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+    /* Input focus */
+    textarea, select, input[type="text"], input[type="password"] {
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    textarea:focus, select:focus, input:focus {
+      border-color: rgba(99,102,241,0.6) !important;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.12) !important;
+      outline: none;
+    }
+
+    /* Graph button */
+    #graphBtn {
+      background: linear-gradient(135deg,var(--c1),var(--c2)) !important;
+      color: #fff !important;
+      transition: transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 15px rgba(99,102,241,0.35);
+    }
+    #graphBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(99,102,241,0.55); }
+
+    /* AI status dot */
+    #aiDot { animation: dotBlink 2s ease-in-out infinite; }
+    @keyframes dotBlink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* Table row hover */
+    tbody tr { transition: background 0.15s; }
+    tbody tr:hover { background: rgba(99,102,241,0.06) !important; }
+  </style>
+</head>
+<body class="bg-[#060b18] text-[#F8FAFC]">
+  <div id="toastWrap" class="fixed top-5 right-5 z-50 space-y-2"></div>
+  <div class="flex min-h-screen">
+    <aside class="w-[240px] bg-[#111827] flex flex-col" style="flex-shrink:0">
+      <div class="p-5 border-b border-[#1f2d40]">
+        <div class="logo-text text-2xl font-bold">🎓 Prof. AI</div>
+        <div class="text-xs text-slate-400 mt-1">Course Assistant</div>
+      </div>
+      <nav class="p-3 space-y-1 flex-1">
+        <button data-tab="documents" class="tab-btn w-full text-left px-3 py-2.5 rounded-lg active-tab">📁 My Documents</button>
+        <button data-tab="chat" class="tab-btn w-full text-left px-3 py-2.5 rounded-lg">🤖 Ask AI</button>
+        <button data-tab="analytics" class="tab-btn w-full text-left px-3 py-2.5 rounded-lg">📊 Analytics</button>
+        <button data-tab="graph" class="tab-btn w-full text-left px-3 py-2.5 rounded-lg">📈 Graph Plotter</button>
+        <button data-tab="settings" class="tab-btn w-full text-left px-3 py-2.5 rounded-lg">⚙️ Settings</button>
+      </nav>
+      <div class="p-4 border-t border-[#1f2d40] text-sm">
+        <div class="flex items-center gap-3">
+          <div id="avatar" class="w-9 h-9 rounded-full text-white flex items-center justify-center font-bold text-sm">P</div>
+          <div class="min-w-0">
+            <div id="sideUsername" class="font-semibold truncate text-slate-200">professor</div>
+            <a href="/logout" class="text-slate-400 hover:text-white text-xs transition-colors">Logout</a>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="flex-1 overflow-y-auto p-6">
+      <section id="tab-documents" class="tab-content space-y-4">
+        <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4">
+          <div id="dropZone" class="border-2 border-dashed border-[#475569] rounded-xl p-8 text-center cursor-pointer hover:border-[#F59E0B] transition">
+            <div class="text-lg font-semibold">Drag and drop files here or click to upload</div>
+            <div class="text-sm text-slate-400 mt-2">PDF · DOCX · PPTX · XLSX · CSV · TXT · JPG · PNG</div>
+            <input id="fileInput" type="file" class="hidden" multiple>
+          </div>
+          <div id="uploadProgress" class="mt-4 space-y-2"></div>
+        </div>
+        <div class="text-sm text-slate-300"><span id="statDocs">0</span> documents · <span id="statWords">0</span> words · <span id="statChunks">0</span> chunks indexed</div>
+        <div class="bg-[#1E293B] border border-[#334155] rounded-xl overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-[#0B1220] text-slate-300">
+              <tr>
+                <th class="p-3 text-left">Type</th><th class="p-3 text-left">Filename</th><th class="p-3 text-left">Size</th><th class="p-3 text-left">Words</th><th class="p-3 text-left">Date</th><th class="p-3 text-left">Status</th><th class="p-3 text-left">Action</th>
+              </tr>
+            </thead>
+            <tbody id="filesTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-chat" class="tab-content hidden">
+        <div id="offlineBanner" class="hidden mb-3 bg-yellow-500/20 border border-yellow-500 text-yellow-200 p-3 rounded">⚠️ AI model offline — please restart the launcher.</div>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-bold text-lg">Chat with your documents</h2>
+          <button onclick="clearChat()" class="px-3 py-2 text-sm bg-red-600 hover:bg-red-500 rounded">🗑 Clear Chat</button>
+        </div>
+        <div id="chatBox" class="min-h-[400px] max-h-[60vh] overflow-y-auto bg-[#1E293B] border border-[#334155] rounded-xl p-4 space-y-4">
+          <div id="chatHint" class="text-slate-400 text-center mt-24">Ask anything about your course materials...</div>
+        </div>
+        <div class="mt-3 flex gap-3">
+          <textarea id="chatInput" class="flex-1 rounded-xl bg-[#1E293B] border border-[#334155] p-3 text-white" rows="2" onkeydown="handleChatKey(event)" placeholder="Type your question..."></textarea>
+          <button id="sendBtn" onclick="sendChat()" class="px-5 py-3 bg-[#F59E0B] text-black font-semibold rounded-xl">Send</button>
+        </div>
+      </section>
+
+      <section id="tab-analytics" class="tab-content hidden space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><div class="text-slate-400 text-xs">Total Documents</div><div id="aTotalDocs" class="text-2xl font-bold">0</div></div>
+          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><div class="text-slate-400 text-xs">Total Questions</div><div id="aTotalQueries" class="text-2xl font-bold">0</div></div>
+          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><div class="text-slate-400 text-xs">Top Topic</div><div id="aTopTopic" class="text-xl font-bold">N/A</div></div>
+          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><div class="text-slate-400 text-xs">Avg Speed</div><div id="aAvg" class="text-2xl font-bold">0 ms</div></div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><canvas id="chartKeywords"></canvas></div>
+          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><canvas id="chartTypes"></canvas></div>
+          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><canvas id="chartDays"></canvas></div>
+          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4"><canvas id="chartDocs"></canvas></div>
+        </div>
+        <div class="bg-[#1E293B] border border-[#334155] rounded-xl overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-[#0B1220] text-slate-300"><tr><th class="p-3 text-left">Time</th><th class="p-3 text-left">Question</th><th class="p-3 text-left">Speed</th><th class="p-3 text-left">Sources</th></tr></thead>
+            <tbody id="recentQueriesBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-graph" class="tab-content hidden space-y-4">
+        <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4 space-y-3">
+          <textarea id="graphPrompt" class="w-full rounded-xl bg-[#0F172A] border border-[#334155] p-3" rows="4" placeholder="e.g. Plot load vs deflection: Load(kN): 0,10,20,30,40 Deflection(mm): 0,2.1,4.5,7.2,11.8"></textarea>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <select id="graphType" class="rounded bg-[#0F172A] border border-[#334155] p-2"><option>line</option><option>bar</option><option>scatter</option><option>pie</option><option>doughnut</option></select>
+            <input id="graphTitle" class="rounded bg-[#0F172A] border border-[#334155] p-2" placeholder="Title">
+            <input id="graphX" class="rounded bg-[#0F172A] border border-[#334155] p-2" placeholder="X-axis">
+            <input id="graphY" class="rounded bg-[#0F172A] border border-[#334155] p-2" placeholder="Y-axis">
+          </div>
+          <button id="graphBtn" onclick="generateGraph()" class="px-4 py-2 bg-[#F59E0B] text-black rounded font-semibold">📊 Generate Graph</button>
+        </div>
+        <div id="graphResult" class="hidden bg-[#1E293B] border border-[#334155] rounded-xl p-4">
+          <img id="graphImage" class="w-full max-w-4xl mx-auto rounded border border-[#334155]">
+          <div class="mt-3"><button onclick="downloadGraph()" class="px-4 py-2 bg-emerald-600 rounded">⬇ Download PNG</button></div>
+        </div>
+      </section>
+
+      <section id="tab-settings" class="tab-content hidden space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4 space-y-3">
+            <h3 class="font-bold">Change Password</h3>
+            <input id="curPw" type="password" class="w-full rounded bg-[#0F172A] border border-[#334155] p-2" placeholder="Current password">
+            <input id="newPw" type="password" class="w-full rounded bg-[#0F172A] border border-[#334155] p-2" placeholder="New password">
+            <input id="confirmPw" type="password" class="w-full rounded bg-[#0F172A] border border-[#334155] p-2" placeholder="Confirm new password">
+            <button onclick="changePassword()" class="px-4 py-2 bg-[#F59E0B] text-black rounded">Update Password</button>
+          </div>
+          <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4">
+            <h3 class="font-bold mb-2">Account Info</h3>
+            <div id="accountInfo" class="text-sm space-y-1 text-slate-200"></div>
+          </div>
+        </div>
+        <div class="bg-[#1E293B] border border-[#334155] rounded-xl p-4 flex flex-wrap gap-3">
+          <button onclick="rebuildIndex()" class="px-4 py-2 bg-blue-600 rounded">Rebuild Index</button>
+          <button onclick="deleteAllDocs()" class="px-4 py-2 bg-red-600 rounded">Delete All Documents</button>
+          <div class="text-sm text-slate-300 ml-auto">Version 1.0.0 · Model llama3 · <span class="inline-flex items-center gap-1"><span id="aiDot" class="inline-block w-2 h-2 rounded-full bg-yellow-400"></span>AI Status</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script>
+let activeTab = "documents";
+let charts = {};
+let graphImageData = "";
+
+function escHtml(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
+function toast(message, type="success"){
+  const d=document.createElement("div");
+  d.className=`px-4 py-3 rounded shadow text-sm ${type==="error"?"bg-red-600":"bg-emerald-600"}`;
+  d.textContent=message;
+  document.getElementById("toastWrap").appendChild(d);
+  setTimeout(()=>d.remove(),4000);
+}
+function setActiveBtn(name){
+  document.querySelectorAll(".tab-btn").forEach(b=>{
+    const on=b.dataset.tab===name;
+    b.classList.toggle("active-tab",on);
+    if(!on) b.style.color="";
+  });
+}
+function showTab(name){
+  activeTab=name;
+  document.querySelectorAll(".tab-content").forEach(s=>s.classList.add("hidden"));
+  document.getElementById(`tab-${name}`).classList.remove("hidden");
+  setActiveBtn(name);
+  if(name==="documents") loadFiles();
+  if(name==="analytics") loadAnalytics();
+  if(name==="settings") loadSettings();
+}
+async function api(url, opts={}){
+  try{
+    const r=await fetch(url,opts);
+    const ct=r.headers.get("content-type")||"";
+    const data=ct.includes("application/json")?await r.json():{};
+    if(!r.ok){
+      const msg=(data.error||data.detail?.error||data.detail||"Request failed");
+      throw new Error(typeof msg==="string"?msg:"Request failed");
+    }
+    return data;
+  }catch(e){
+    throw new Error(e.message||"Network error");
+  }
+}
+function extIcon(type){
+  const t=(type||"").toLowerCase();
+  if(["pdf"].includes(t)) return "📕";
+  if(["docx"].includes(t)) return "📘";
+  if(["pptx"].includes(t)) return "📙";
+  if(["xlsx","xls","csv"].includes(t)) return "📗";
+  if(["jpg","jpeg","png"].includes(t)) return "🖼️";
+  return "📄";
+}
+async function loadFiles(){
+  try{
+    const data=await api("/files");
+    const rows=data.items||[];
+    let words=0,chunks=0;
+    const tbody=document.getElementById("filesTbody");
+    tbody.innerHTML="";
+    rows.forEach(r=>{
+      words+=Number(r.word_count||0);
+      chunks+=Number(r.chunk_count||0);
+      const status = r.status==="indexed" ? "bg-emerald-600" : (r.status==="processing" ? "bg-yellow-500 text-black" : "bg-red-600");
+      const tr=document.createElement("tr");
+      tr.className="border-t border-[#334155]";
+      tr.innerHTML=`<td class="p-3">${extIcon(r.file_type)}</td><td class="p-3">${escHtml(r.filename)}</td><td class="p-3">${Number(r.size_kb||0).toFixed(1)} KB</td><td class="p-3">${r.word_count||0}</td><td class="p-3">${escHtml(r.upload_date||"")}</td><td class="p-3"><span class="px-2 py-1 rounded text-xs ${status}">${escHtml(r.status||"")}</span></td><td class="p-3"><button onclick="deleteFile(${r.id})" class="px-2 py-1 bg-red-600 rounded text-xs">Delete</button></td>`;
+      tbody.appendChild(tr);
+    });
+    document.getElementById("statDocs").textContent=rows.length;
+    document.getElementById("statWords").textContent=words;
+    document.getElementById("statChunks").textContent=chunks;
+  }catch(e){ toast(e.message,"error"); }
+}
+async function deleteFile(id){
+  if(!confirm("Delete this file?")) return;
+  try{ await api(`/files/${id}`,{method:"DELETE"}); toast("File deleted"); loadFiles(); }catch(e){toast(e.message,"error");}
+}
+async function uploadFiles(fileList){
+  const wrap=document.getElementById("uploadProgress");
+  for(const file of fileList){
+    const row=document.createElement("div");
+    row.className="bg-[#0F172A] border border-[#334155] rounded p-2";
+    row.innerHTML=`<div class="text-sm mb-1">${escHtml(file.name)}</div><div class="h-2 bg-[#334155] rounded overflow-hidden"><div class="h-full bg-[#F59E0B] animate-pulse" style="width:100%"></div></div><div class="text-xs mt-1 text-slate-300">Uploading...</div>`;
+    wrap.appendChild(row);
+    const fd=new FormData(); fd.append("file",file);
+    try{
+      const r=await fetch("/upload",{method:"POST",body:fd});
+      const j=await r.json();
+      const errMsg = j?.error || j?.detail?.error || j?.detail?.detail || j?.detail || "Upload failed";
+      if(!r.ok || !j.success) throw new Error(typeof errMsg==="string" ? errMsg : "Upload failed");
+      row.querySelector(".text-xs").innerHTML=`<span class="text-emerald-400">✅ Indexed (${j.chunks} chunks)</span>`;
+      toast(`${file.name} indexed`);
+    }catch(e){
+      row.querySelector(".text-xs").innerHTML=`<span class="text-red-400">❌ Error</span>`;
+      toast(`${file.name}: ${e.message}`,"error");
+    }
+  }
+  loadFiles();
+}
+function addUserBubble(text){
+  const box=document.getElementById("chatBox");
+  document.getElementById("chatHint").classList.add("hidden");
+  const d=document.createElement("div");
+  d.className="flex justify-end";
+  d.innerHTML=`<div class="user-bubble max-w-[75%] rounded-xl px-4 py-2 text-white font-medium">${escHtml(text)}</div>`;
+  box.appendChild(d); box.scrollTop=box.scrollHeight;
+}
+function addAiBubble(){
+  const box=document.getElementById("chatBox");
+  document.getElementById("chatHint").classList.add("hidden");
+  const d=document.createElement("div");
+  d.className="flex justify-start";
+  d.innerHTML=`<div class="ai-bubble max-w-[80%] rounded-xl px-4 py-3"><div class="font-semibold mb-1 text-indigo-300">🤖 Assistant</div><div class="whitespace-pre-wrap text-sm ai-body text-slate-200"></div><div class="text-xs mt-2 text-slate-400 ai-src"></div></div>`;
+  box.appendChild(d); box.scrollTop=box.scrollHeight;
+  return d;
+}
+async function sendChat(){
+  const input=document.getElementById("chatInput");
+  const sendBtn=document.getElementById("sendBtn");
+  const q=input.value.trim();
+  if(!q) return;
+  input.value="";
+  addUserBubble(q);
+  const ai=addAiBubble();
+  const body=ai.querySelector(".ai-body");
+  const src=ai.querySelector(".ai-src");
+  sendBtn.disabled=true;
+  try{
+    const res=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query:q})});
+    if(!res.ok){ throw new Error("Chat request failed"); }
+    const reader=res.body.getReader();
+    const decoder=new TextDecoder();
+    let buffer="";
+    while(true){
+      const {done,value}=await reader.read();
+      if(done) break;
+      buffer+=decoder.decode(value,{stream:true});
+      const lines=buffer.split("\n");
+      buffer=lines.pop()||"";
+      for(const line of lines){
+        if(!line.startsWith("data: ")) continue;
+        const payload=JSON.parse(line.slice(6));
+        if(payload.type==="token"){ body.textContent += payload.content; }
+        if(payload.type==="sources"){
+          const text=(payload.content||[]).map(s=>`${s.filename} (p.${s.page})`).join(" · ");
+          src.textContent = text ? `📚 Sources: ${text}` : "";
+        }
+        if(payload.type==="error"){
+          document.getElementById("offlineBanner").classList.remove("hidden");
+          body.innerHTML = `<span class="text-red-400">${escHtml(payload.content)}</span>`;
+        }
+      }
+      const box=document.getElementById("chatBox"); box.scrollTop=box.scrollHeight;
+    }
+    document.getElementById("aiDot").className="inline-block w-2 h-2 rounded-full bg-emerald-500";
+  }catch(e){
+    document.getElementById("offlineBanner").classList.remove("hidden");
+    body.innerHTML=`<span class="text-red-400">${escHtml(e.message)}</span>`;
+    toast(e.message,"error");
+  }finally{
+    sendBtn.disabled=false;
+  }
+}
+function handleChatKey(e){ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendChat(); } }
+async function clearChat(){
+  if(!confirm("Clear entire chat history?")) return;
+  try{ await api("/chat/history",{method:"DELETE"}); document.getElementById("chatBox").innerHTML='<div id="chatHint" class="text-slate-400 text-center mt-24">Ask anything about your course materials...</div>'; toast("Chat cleared"); }catch(e){ toast(e.message,"error"); }
+}
+function chartDefaults(){
+  return {
+    plugins:{legend:{labels:{color:"#F8FAFC"}}},
+    scales:{x:{ticks:{color:"#F8FAFC"},grid:{color:"#334155"}},y:{ticks:{color:"#F8FAFC"},grid:{color:"#334155"}}}
+  };
+}
+function destroyCharts(){ Object.values(charts).forEach(c=>c&&c.destroy()); charts={}; }
+async function loadAnalytics(){
+  try{
+    const d=await api("/analytics");
+    document.getElementById("aTotalDocs").textContent=d.total_docs||0;
+    document.getElementById("aTotalQueries").textContent=d.total_queries||0;
+    document.getElementById("aTopTopic").textContent=d.most_searched||"N/A";
+    document.getElementById("aAvg").textContent=`${d.avg_response_ms||0} ms`;
+    destroyCharts();
+    charts.k=new Chart(document.getElementById("chartKeywords"),{type:"bar",data:{labels:(d.top_keywords||[]).map(x=>x.word),datasets:[{label:"Keywords",data:(d.top_keywords||[]).map(x=>x.count),backgroundColor:"#F59E0B"}]},options:chartDefaults()});
+    charts.t=new Chart(document.getElementById("chartTypes"),{type:"doughnut",data:{labels:(d.file_type_dist||[]).map(x=>x.type),datasets:[{data:(d.file_type_dist||[]).map(x=>x.count),backgroundColor:["#0F4C81","#F59E0B","#10B981","#EF4444","#8B5CF6"]}]},options:{plugins:{legend:{labels:{color:"#F8FAFC"}}}}});
+    charts.d=new Chart(document.getElementById("chartDays"),{type:"line",data:{labels:(d.queries_per_day||[]).map(x=>x.date),datasets:[{label:"Queries",data:(d.queries_per_day||[]).map(x=>x.count),borderColor:"#10B981",backgroundColor:"rgba(16,185,129,.2)"}]},options:chartDefaults()});
+    charts.c=new Chart(document.getElementById("chartDocs"),{type:"bar",data:{labels:(d.top_docs||[]).map(x=>x.filename),datasets:[{label:"Citations",data:(d.top_docs||[]).map(x=>x.count),backgroundColor:"#0F4C81"}]},options:chartDefaults()});
+    const tbody=document.getElementById("recentQueriesBody");
+    tbody.innerHTML="";
+    (d.recent_queries||[]).forEach(r=>{
+      const tr=document.createElement("tr");
+      tr.className="border-t border-[#334155]";
+      tr.innerHTML=`<td class="p-3">${escHtml(r.time||"")}</td><td class="p-3">${escHtml((r.question||"").slice(0,120))}</td><td class="p-3">${r.response_time||0} ms</td><td class="p-3">${r.sources||0}</td>`;
+      tbody.appendChild(tr);
+    });
+  }catch(e){ toast(e.message,"error"); }
+}
+async function generateGraph(){
+  const btn=document.getElementById("graphBtn");
+  const payload={
+    prompt:document.getElementById("graphPrompt").value.trim(),
+    chart_type:document.getElementById("graphType").value,
+    title:document.getElementById("graphTitle").value.trim()||"Chart",
+    xlabel:document.getElementById("graphX").value.trim()||"X",
+    ylabel:document.getElementById("graphY").value.trim()||"Y"
+  };
+  if(!payload.prompt){ toast("Please enter graph prompt","error"); return; }
+  btn.disabled=true; btn.textContent="Generating...";
+  try{
+    const d=await api("/plot",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    if(d.error) throw new Error(d.error);
+    graphImageData=d.image;
+    document.getElementById("graphImage").src=`data:image/png;base64,${d.image}`;
+    document.getElementById("graphResult").classList.remove("hidden");
+    toast("Graph generated");
+  }catch(e){ toast(e.message,"error"); }
+  finally{ btn.disabled=false; btn.textContent="📊 Generate Graph"; }
+}
+function downloadGraph(){
+  if(!graphImageData){ toast("No graph to download","error"); return; }
+  const a=document.createElement("a");
+  a.href=`data:image/png;base64,${graphImageData}`;
+  a.download="graph.png";
+  a.click();
+}
+async function loadSettings(){
+  try{
+    const me=await api("/settings/me");
+    document.getElementById("sideUsername").textContent=me.username;
+    document.getElementById("avatar").textContent=(me.username||"U")[0].toUpperCase();
+    document.getElementById("accountInfo").innerHTML=`<div><b>Username:</b> ${escHtml(me.username)}</div><div><b>Role:</b> ${escHtml(me.role)}</div><div><b>Created:</b> ${escHtml(me.created_at||"")}</div><div><b>Documents:</b> ${me.doc_count||0}</div><div><b>Storage:</b> ${me.storage_kb||0} KB</div>`;
+  }catch(e){ toast(e.message,"error"); }
+}
+async function changePassword(){
+  const cur=document.getElementById("curPw").value;
+  const n1=document.getElementById("newPw").value;
+  const n2=document.getElementById("confirmPw").value;
+  if(n1!==n2){ toast("New passwords do not match","error"); return; }
+  try{
+    const d=await api("/settings/password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({current_password:cur,new_password:n1})});
+    if(d.error) throw new Error(d.error);
+    toast("Password updated");
+    document.getElementById("curPw").value=document.getElementById("newPw").value=document.getElementById("confirmPw").value="";
+  }catch(e){ toast(e.message,"error"); }
+}
+async function rebuildIndex(){
+  if(!confirm("Rebuild the complete index?")) return;
+  try{ const d=await api("/rebuild-index",{method:"POST"}); toast(`Index rebuilt (${d.chunks||0} chunks)`); }catch(e){ toast(e.message,"error"); }
+}
+async function deleteAllDocs(){
+  if(!confirm("Delete ALL documents?")) return;
+  if(!confirm("This cannot be undone. Continue?")) return;
+  try{
+    const data=await api("/files");
+    for(const f of (data.items||[])){ await api(`/files/${f.id}`,{method:"DELETE"}); }
+    toast("All documents deleted");
+    loadFiles();
+  }catch(e){ toast(e.message,"error"); }
+}
+
+document.querySelectorAll(".tab-btn").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.tab)));
+const dz=document.getElementById("dropZone");
+dz.addEventListener("click",()=>document.getElementById("fileInput").click());
+dz.addEventListener("dragover",e=>{e.preventDefault();dz.classList.add("border-[#F59E0B]");});
+dz.addEventListener("dragleave",()=>dz.classList.remove("border-[#F59E0B]"));
+dz.addEventListener("drop",e=>{e.preventDefault();dz.classList.remove("border-[#F59E0B]");uploadFiles(e.dataTransfer.files);});
+document.getElementById("fileInput").addEventListener("change",e=>uploadFiles(e.target.files));
+
+showTab("documents");
+loadSettings();
+</script>
+</body>
+</html>

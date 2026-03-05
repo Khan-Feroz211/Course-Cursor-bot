@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prof. AI Assistant - Login</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --c1: #6366f1; --c2: #8b5cf6; --c3: #06b6d4; --c4: #f59e0b; --c5: #10b981;
+    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: #060b18;
+      overflow: hidden;
+      position: relative;
+    }
+    /* Animated RGB background blobs */
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.35;
+      animation: blobMove 10s ease-in-out infinite alternate;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .blob1 { width: 500px; height: 500px; background: var(--c1); top: -150px; left: -150px; animation-delay: 0s; }
+    .blob2 { width: 400px; height: 400px; background: var(--c2); bottom: -120px; right: -120px; animation-delay: -3s; }
+    .blob3 { width: 300px; height: 300px; background: var(--c3); top: 40%; left: 50%; animation-delay: -6s; }
+    @keyframes blobMove {
+      0%   { transform: translate(0,0) scale(1); }
+      33%  { transform: translate(30px,-40px) scale(1.05); }
+      66%  { transform: translate(-20px,20px) scale(0.97); }
+      100% { transform: translate(10px,30px) scale(1.03); }
+    }
+    /* Animated gradient border */
+    .card-wrap {
+      position: relative;
+      z-index: 1;
+      padding: 2px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--c1), var(--c2), var(--c3), var(--c4), var(--c5));
+      background-size: 300% 300%;
+      animation: rgbBorder 4s linear infinite;
+      box-shadow: 0 0 40px rgba(99,102,241,0.4), 0 0 80px rgba(139,92,246,0.2);
+    }
+    @keyframes rgbBorder {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 18px;
+      padding: 36px 32px 28px;
+      animation: cardIn 0.6s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(40px) scale(0.95); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .icon-wrap {
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .icon {
+      display: inline-block;
+      font-size: 54px;
+      animation: iconPulse 2.5s ease-in-out infinite;
+    }
+    @keyframes iconPulse {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      50% { transform: scale(1.08) rotate(-3deg); }
+    }
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #a5b4fc, #c4b5fd, #67e8f9);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 4px;
+    }
+    .tagline {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 13px;
+      margin-bottom: 24px;
+      letter-spacing: 0.3px;
+    }
+    label {
+      display: block;
+      margin: 14px 0 6px;
+      color: #cbd5e1;
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .input-wrap { position: relative; }
+    input {
+      width: 100%;
+      padding: 13px 16px;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid #334155;
+      border-radius: 12px;
+      font-size: 15px;
+      color: #f1f5f9;
+      outline: none;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    input::placeholder { color: #475569; }
+    input:focus {
+      border-color: var(--c1);
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.25), 0 0 12px rgba(99,102,241,0.15);
+    }
+    button[type="submit"] {
+      width: 100%;
+      margin-top: 22px;
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #fff;
+      background: linear-gradient(135deg, var(--c1), var(--c2));
+      background-size: 200% 200%;
+      animation: btnGrad 3s ease infinite;
+      transition: transform 0.15s, box-shadow 0.3s;
+      box-shadow: 0 4px 20px rgba(99,102,241,0.35);
+      letter-spacing: 0.5px;
+    }
+    @keyframes btnGrad {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    button[type="submit"]:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(99,102,241,0.5);
+    }
+    button[type="submit"]:active { transform: translateY(0); }
+    .footer {
+      margin-top: 20px;
+      text-align: center;
+      color: #475569;
+      font-size: 12px;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .footer span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--c5);
+      animation: dotPulse 1.5s ease-in-out infinite;
+    }
+    @keyframes dotPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+    .error {
+      display: none;
+      margin-bottom: 16px;
+      border: 1px solid rgba(239,68,68,0.4);
+      background: rgba(239,68,68,0.12);
+      color: #fca5a5;
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 13px;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    .shake { animation: shake .35s ease 1; }
+    @keyframes shake {
+      0%{ transform: translateX(0) } 20%{ transform: translateX(-8px) }
+      40%{ transform: translateX(8px) } 60%{ transform: translateX(-5px) }
+      80%{ transform: translateX(4px) } 100%{ transform: translateX(0) }
+    }
+    /* Floating particles */
+    .particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    .particle {
+      position: absolute;
+      border-radius: 50%;
+      animation: float linear infinite;
+      opacity: 0;
+    }
+    @keyframes float {
+      0%   { opacity: 0; transform: translateY(100vh) scale(0); }
+      10%  { opacity: 0.6; }
+      90%  { opacity: 0.3; }
+      100% { opacity: 0; transform: translateY(-100px) scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="blob blob1"></div>
+  <div class="blob blob2"></div>
+  <div class="blob blob3"></div>
+  <div class="particles" id="particles"></div>
+
+  <div class="card-wrap">
+    <div class="card" id="card">
+      <div class="icon-wrap"><span class="icon">🎓</span></div>
+      <h1>Prof. AI Assistant</h1>
+      <div class="tagline">Your personal course knowledge base</div>
+      <div id="errorBox" class="error">⚠️ Incorrect username or password. Please try again.</div>
+      <form method="POST" action="/login">
+        <label for="username">Username</label>
+        <div class="input-wrap">
+          <input id="username" name="username" autocomplete="username" placeholder="Enter your username" required>
+        </div>
+        <label for="password">Password</label>
+        <div class="input-wrap">
+          <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+        </div>
+        <button type="submit">🔐 Sign In</button>
+      </form>
+      <div class="footer">
+        <span><span class="dot"></span> Secure</span>
+        <span>·</span>
+        <span>Private</span>
+        <span>·</span>
+        <span>100% Offline</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const hasError = new URLSearchParams(window.location.search).get("error") === "1";
+    if (hasError) {
+      document.getElementById("errorBox").style.display = "block";
+      document.getElementById("card").classList.add("shake");
+    }
+
+    // Generate floating particles
+    const container = document.getElementById("particles");
+    const colors = ["#6366f1","#8b5cf6","#06b6d4","#f59e0b","#10b981"];
+    for (let i = 0; i < 30; i++) {
+      const p = document.createElement("div");
+      p.className = "particle";
+      const size = Math.random() * 5 + 2;
+      p.style.cssText = `
+        width:${size}px; height:${size}px;
+        left:${Math.random()*100}%;
+        background:${colors[Math.floor(Math.random()*colors.length)]};
+        animation-duration:${Math.random()*15+8}s;
+        animation-delay:${Math.random()*10}s;
+      `;
+      container.appendChild(p);
+    }
+  </script>
+</body>
+</html>

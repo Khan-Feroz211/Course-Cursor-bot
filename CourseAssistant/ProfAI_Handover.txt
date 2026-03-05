@@ -1,0 +1,62 @@
+Prof. AI Assistant – User Guide & Handover
+
+---
+
+System Requirements
+-------------------
+- Windows 10 or 11 (64-bit)
+- Python 3.11 (do not use 3.13)
+- Ollama (AI model runtime): https://ollama.com/
+- Internet connection (for first-time setup)
+
+Installation Steps
+------------------
+1. Install Python 3.11: https://www.python.org/downloads/release/python-3110/
+2. Install Ollama: https://ollama.com/
+3. Unzip or copy the `CourseAssistant` folder to your computer.
+
+How to Start the App
+--------------------
+1. Open the `CourseAssistant` folder.
+2. Double-click `Launch_Windows.bat`.
+3. Wait for the browser to open at http://localhost:8000 (first time may take a few minutes).
+4. Log in with the credentials below.
+
+Default Login Credentials
+------------------------
+| Username   | Password    |
+|------------|-------------|
+| professor  | Prof@2024   |
+
+*You can change your password after logging in from the Settings tab.*
+
+Troubleshooting Tips
+--------------------
+- If the browser does not open or you see “localhost refused to connect”:
+  - Make sure Python and Ollama are installed.
+  - Ensure no other app is using port 8000.
+  - Try restarting your computer and running `Launch_Windows.bat` again.
+  - If you see errors about missing dependencies, run `venv\Scripts\Activate.ps1` and then `pip install -r requirements.txt` in the `CourseAssistant` folder.
+
+Need Help or More Features?
+--------------------------
+This project was delivered by Feroz Khan, a beginner developer. If you need help, updates, or want to build more projects in the future, please contact me:
+
+- Email: [your-email@example.com]
+- Phone: [your-phone-number]
+
+Thank you for trusting me with your project!
+
+---
+
+How to Log In
+-------------
+- Open http://localhost:8000 in your browser.
+- Use the following credentials:
+  - Username: professor
+  - Password: Prof@2024
+- If you forget your password, contact Feroz Khan for help.
+
+---
+
+*If you need this document as a PDF, you can print this file to PDF using any browser or PDF printer.*
