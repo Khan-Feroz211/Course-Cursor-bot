@@ -91,13 +91,29 @@ if errorlevel 1 (
   echo Ollama is ready.
 )
 
-start /B cmd /c "timeout /t 10 /nobreak >nul && start http://localhost:8000"
+start /B "" venv\Scripts\uvicorn.exe main:app --host 127.0.0.1 --port 8000 --log-level info
 
-echo Prof. AI Assistant is running.
-echo Open: http://localhost:8000
+echo Waiting for server to be ready...
+set POLL=0
+:waitserver
+timeout /t 3 /nobreak >nul
+set /a POLL+=3
+curl -s http://localhost:8000 >nul 2>&1
+if not errorlevel 1 goto serverup
+if !POLL! LSS 120 goto waitserver
+echo [WARNING] Server is taking longer than usual, opening browser anyway...
+:serverup
+echo Server is ready ^(waited !POLL! seconds^). Opening browser...
+start http://localhost:8000
+
+echo.
+echo Prof. AI Assistant is running at http://localhost:8000
 echo Close this window to stop.
 echo.
 
-call venv\Scripts\uvicorn main:app --host 127.0.0.1 --port 8000 --log-level warning
-
-endlocal
+:keepalive
+timeout /t 10 /nobreak >nul
+curl -s http://localhost:8000 >nul 2>&1
+if not errorlevel 1 goto keepalive
+echo Server has stopped.
+pause

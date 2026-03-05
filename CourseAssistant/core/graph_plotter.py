@@ -43,7 +43,7 @@ async def generate_chart(prompt, chart_type, title, xlabel, ylabel) -> dict:
             f"xlabel: {xlabel}\n"
             f"ylabel: {ylabel}"
         )
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=600.0, write=10.0, pool=10.0)) as client:
             res = await client.post(
                 f"{OLLAMA_URL}/api/chat",
                 json={
@@ -110,6 +110,9 @@ async def generate_chart(prompt, chart_type, title, xlabel, ylabel) -> dict:
         plt.close(fig)
         img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
         return {"image": img_b64, "title": ptitle}
+    except (httpx.ReadTimeout, httpx.TimeoutException):
+        logger.warning("Graph generation timed out — Ollama too slow")
+        return {"error": "AI is taking too long to respond. The model may be warming up — please try again in 30 seconds."}
     except Exception as exc:
         logger.exception("Graph generation error")
         return {"error": str(exc)}
