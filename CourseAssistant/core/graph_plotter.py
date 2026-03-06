@@ -28,13 +28,27 @@ def _use_groq() -> bool:
 
 def _extract_json(text: str) -> dict:
     s = text.strip()
+    # Strip markdown fences
     if s.startswith("```json"):
         s = s[7:].strip()
-    if s.startswith("```"):
+    elif s.startswith("```"):
         s = s[3:].strip()
     if s.endswith("```"):
         s = s[:-3].strip()
-    return json.loads(s)
+    s = s.strip()
+    if not s:
+        raise ValueError("AI returned an empty response")
+    # Try direct parse first
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        pass
+    # Try to extract first JSON object from mixed text
+    start = s.find("{")
+    end = s.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return json.loads(s[start:end + 1])
+    raise ValueError(f"No JSON found in AI response: {s[:120]!r}")
 
 
 async def _call_ai(system: str, user: str) -> str:
@@ -76,15 +90,19 @@ async def _call_ai(system: str, user: str) -> str:
 async def generate_chart(prompt, chart_type, title, xlabel, ylabel) -> dict:
     try:
         system = (
-            "Extract chart data. Return ONLY valid JSON, no markdown: "
-            "{chart_type, title, xlabel, ylabel, datasets:[{label, x:[], y:[]}]}"
+            "You are a data extraction API. Your ONLY output must be a single raw JSON object — "
+            "no markdown, no explanation, no extra text whatsoever. "
+            "Output format: {\"chart_type\":\"line\",\"title\":\"...\",\"xlabel\":\"...\",\"ylabel\":\"...\","
+            "\"datasets\":[{\"label\":\"...\",\"x\":[],\"y\":[]}]}"
         )
         user = (
-            f"Prompt: {prompt}\n"
-            f"chart_type: {chart_type}\n"
-            f"title: {title}\n"
-            f"xlabel: {xlabel}\n"
-            f"ylabel: {ylabel}"
+            f"Extract chart data from this description and return ONLY the JSON object:\n"
+            f"Description: {prompt}\n"
+            f"chart_type: {chart_type or 'line'}\n"
+            f"title: {title or 'Chart'}\n"
+            f"xlabel: {xlabel or 'X'}\n"
+            f"ylabel: {ylabel or 'Y'}\n"
+            f"If no real data is mentioned, invent 5 realistic sample data points."
         )
 
         raw = await _call_ai(system, user)
@@ -145,6 +163,9 @@ async def generate_chart(prompt, chart_type, title, xlabel, ylabel) -> dict:
     except (httpx.ReadTimeout, httpx.TimeoutException):
         logger.warning("Graph generation timed out")
         return {"error": "AI took too long to respond. Please try a simpler prompt or try again shortly."}
+    except (ValueError, json.JSONDecodeError) as exc:
+        logger.error("Graph JSON parse error: %s", exc)
+        return {"error": f"Could not parse chart data from AI response. Try rephrasing your prompt with explicit numbers (e.g. 'bar chart: concrete strength: 20, 25, 30 MPa')."}
     except Exception as exc:
         logger.exception("Graph generation error")
         return {"error": str(exc)}
