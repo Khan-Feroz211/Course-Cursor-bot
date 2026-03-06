@@ -1,11 +1,11 @@
 @echo off
 chcp 65001 >nul
 setlocal EnableDelayedExpansion
-title Prof. AI Assistant
+title Civil Engineering ^& Courses Counseller
 
 echo.
 echo ==========================================
-echo          Prof. AI Assistant v1.0
+echo   Civil Engineering ^& Courses Counseller
 echo       Starting up, please wait...
 echo ==========================================
 echo.
@@ -36,6 +36,12 @@ if !PYMAJOR! EQU 3 if !PYMINOR! LSS 11 (
   exit /b 1
 )
 
+:: Skip all Ollama setup when using Groq cloud AI
+if exist .env (
+  findstr /I "AI_BACKEND=groq" .env >nul 2>&1
+  if not errorlevel 1 goto skipollama_install
+)
+
 where ollama >nul 2>&1
 if errorlevel 1 (
   echo Ollama is not installed.
@@ -55,6 +61,7 @@ if errorlevel 1 (
   )
 )
 
+:skipollama_install
 if not exist venv (
   echo First-time setup, installing for 2-3 minutes...
   py -3.11 -m venv venv 2>nul
@@ -64,7 +71,7 @@ if not exist venv (
     pause
     exit /b 1
   )
-  call venv\Scripts\pip install -r requirements.txt --quiet
+  call venv\Scripts\python.exe -m pip install -r requirements.txt --quiet
   if errorlevel 1 (
     echo Failed to install dependencies.
     pause
@@ -76,7 +83,29 @@ if not exist .env copy .env.example .env >nul
 if not exist data\logs mkdir data\logs
 if not exist data\users mkdir data\users
 
-curl -s http://localhost:11434/api/tags >nul 2>&1
+:: Check if using Groq cloud AI (no Ollama needed)
+findstr /I "AI_BACKEND=groq" .env >nul 2>&1
+if not errorlevel 1 (
+  findstr /I "GROQ_API_KEY=" .env >nul 2>&1
+  for /f "tokens=2 delims==" %%k in ('findstr /I "GROQ_API_KEY" .env 2^>nul') do set GK=%%k
+  if "!GK!"=="" (
+    echo.
+    echo  ========================================================
+    echo   ACTION REQUIRED: Set your Groq API key in .env
+    echo   1. Open: %CD%\.env
+    echo   2. Paste your key after GROQ_API_KEY=
+    echo   3. Get a free key at: https://console.groq.com
+    echo  ========================================================
+    echo.
+    start notepad.exe .env
+    pause
+    exit /b 1
+  )
+  echo Using Groq Cloud AI ^(fast mode^) - Ollama not required.
+  goto startserver
+)
+
+where ollama >nul 2>&1
 if errorlevel 1 (
   echo Starting Ollama AI engine...
   start /B ollama serve
@@ -91,7 +120,8 @@ if errorlevel 1 (
   echo Ollama is ready.
 )
 
-start /B "" venv\Scripts\uvicorn.exe main:app --host 127.0.0.1 --port 8000 --log-level info
+:startserver
+start /B "" venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --log-level info
 
 echo Waiting for server to be ready...
 set POLL=0
@@ -107,7 +137,7 @@ echo Server is ready ^(waited !POLL! seconds^). Opening browser...
 start http://localhost:8000
 
 echo.
-echo Prof. AI Assistant is running at http://localhost:8000
+echo Civil Engineering ^& Courses Counseller is running at http://localhost:8000
 echo Close this window to stop.
 echo.
 
