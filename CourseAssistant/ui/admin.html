@@ -6,131 +6,135 @@
   <title>Prof. AI Assistant - Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root {\n      --c1:#ef4444; --c2:#f97316; --c3:#8b5cf6; --c4:#f59e0b; --c5:#10b981;\n      --bg:#030712;\n    }
+    :root {
+      --r:#ef4444; --o:#f97316; --v:#8b5cf6; --y:#f59e0b; --g:#10b981;
+      --bg:#000;
+    }
     * { box-sizing: border-box; }
     body {
-      background: var(--bg) !important;
+      background: #000 !important;
       background-image:
-        radial-gradient(ellipse 80% 50% at 15% 15%, rgba(239,68,68,0.09) 0%, transparent 55%),
-        radial-gradient(ellipse 60% 55% at 85% 80%, rgba(249,115,22,0.07) 0%, transparent 55%),
-        radial-gradient(ellipse 50% 40% at 55% 5%,  rgba(139,92,246,0.06) 0%, transparent 50%);
+        radial-gradient(ellipse 72% 52% at 12% 15%, rgba(239,68,68,0.17) 0%, transparent 55%),
+        radial-gradient(ellipse 58% 55% at 90% 84%, rgba(249,115,22,0.12) 0%, transparent 55%),
+        radial-gradient(ellipse 45% 36% at 55% 5%,  rgba(139,92,246,0.08) 0%, transparent 50%),
+        linear-gradient(rgba(239,68,68,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(239,68,68,0.05) 1px, transparent 1px) !important;
+      background-size: 100% 100%, 100% 100%, 100% 100%, 44px 44px, 44px 44px !important;
       min-height: 100vh;
     }
     body::before {
-      content: ""; position: fixed; inset: 0; z-index:0; pointer-events:none;
-      background: radial-gradient(circle 700px at -15% -15%, rgba(239,68,68,0.06) 0%, transparent 70%),
-                  radial-gradient(circle 600px at 110% 110%, rgba(249,115,22,0.06) 0%, transparent 70%);
+      content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(circle 800px at -12% -12%, rgba(239,68,68,0.12) 0%, transparent 70%),
+        radial-gradient(circle 700px at 115% 115%, rgba(249,115,22,0.10) 0%, transparent 70%);
     }
     /* SIDEBAR */
     aside {
-      position: relative; z-index:2;
-      background: linear-gradient(180deg,#0a0812 0%,#120d1e 55%,#0a0812 100%) !important;
-      border-right: 1px solid rgba(239,68,68,0.22) !important;
-      box-shadow: 4px 0 40px rgba(239,68,68,0.10), inset -1px 0 0 rgba(239,68,68,0.12);
-      flex-shrink:0;
+      position: relative; z-index: 2;
+      background: linear-gradient(180deg,#080012 0%,#120318 55%,#080012 100%) !important;
+      border-right: 1px solid rgba(239,68,68,0.30) !important;
+      box-shadow: 5px 0 58px rgba(239,68,68,0.18), inset -1px 0 0 rgba(239,68,68,0.20), 2px 0 120px rgba(249,115,22,0.07);
+      flex-shrink: 0;
     }
     aside::before {
-      content:""; position:absolute; inset:0; pointer-events:none;
-      background: linear-gradient(180deg,rgba(239,68,68,0.05) 0%,rgba(249,115,22,0.03) 50%,rgba(139,92,246,0.05) 100%);
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(180deg,rgba(239,68,68,0.08) 0%,rgba(249,115,22,0.05) 50%,rgba(139,92,246,0.07) 100%);
     }
     /* LOGO */
     .logo-text {
       background: linear-gradient(135deg,#fca5a5,#fdba74,#c4b5fd,#fca5a5);
       background-size: 400% 400%;
-      -webkit-background-clip:text;
-      -webkit-text-fill-color:transparent;
-      background-clip:text;
-      animation:gradShift 5s ease infinite;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      animation: gradShift 5s ease infinite;
     }
-    @keyframes gradShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+    @keyframes gradShift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
     /* TAB BUTTONS */
     .tab-btn {
       transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
-      border: 1px solid transparent;
-      color: #64748b; font-weight:500;
-      position:relative; overflow:hidden;
+      border: 1px solid transparent; color: #4a3030; font-weight: 500;
+      position: relative; overflow: hidden;
     }
     .tab-btn::before {
-      content:""; position:absolute;
-      left:-100%; top:0; bottom:0; width:3px;
-      background: linear-gradient(180deg,var(--c1),var(--c2));
-      transition: left 0.25s; border-radius:0 2px 2px 0;
+      content: ""; position: absolute; left: -100%; top: 0; bottom: 0; width: 3px;
+      background: linear-gradient(180deg,var(--r),var(--o));
+      transition: left 0.25s; border-radius: 0 2px 2px 0;
     }
-    .tab-btn.active-tab::before { left:0; }
+    .tab-btn.active-tab::before { left: 0; }
     .tab-btn.active-tab {
-      background: linear-gradient(135deg,rgba(239,68,68,0.18),rgba(249,115,22,0.12)) !important;
-      border-color: rgba(239,68,68,0.42) !important;
-      color: #fca5a5 !important;
-      box-shadow: 0 0 22px rgba(239,68,68,0.16);
+      background: linear-gradient(135deg,rgba(239,68,68,0.24),rgba(249,115,22,0.15)) !important;
+      border-color: rgba(239,68,68,0.52) !important; color: #fca5a5 !important;
+      box-shadow: 0 0 30px rgba(239,68,68,0.22), inset 0 1px 0 rgba(255,255,255,0.05);
     }
     .tab-btn:not(.active-tab):hover {
-      background: rgba(239,68,68,0.08) !important;
-      border-color: rgba(239,68,68,0.22) !important;
-      color: #fecaca !important;
+      background: rgba(239,68,68,0.11) !important;
+      border-color: rgba(239,68,68,0.30) !important; color: #fed7d7 !important;
       transform: translateX(3px);
     }
     /* MAIN */
-    main { background: transparent; position:relative; z-index:1; }
-    /* CARDS */
+    main { background: transparent; position: relative; z-index: 1; }
+    /* GLASS CARDS */
     .bg-\[\#1E293B\] {
-      background: linear-gradient(135deg,rgba(8,5,18,0.97),rgba(14,8,28,0.95)) !important;
-      backdrop-filter: blur(14px);
-      border: 1px solid rgba(239,68,68,0.10) !important;
-      transition: border-color 0.3s, box-shadow 0.3s;
-    }
-    .bg-\[\#1E293B\]:hover { border-color: rgba(239,68,68,0.28) !important; box-shadow: 0 4px 32px rgba(239,68,68,0.07); }
-    /* SCROLLBAR */
-    ::-webkit-scrollbar{width:5px;height:5px}
-    ::-webkit-scrollbar-track{background:rgba(3,7,18,0.8)}
-    ::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--c1),var(--c2));border-radius:3px}
-    ::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,var(--c2),var(--c3))}
-    /* ANIMATIONS */
-    .flex.min-h-screen{animation:pageIn 0.6s cubic-bezier(0.22,1,0.36,1) both}
-    @keyframes pageIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-    .tab-content:not(.hidden){animation:fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-    tbody tr{transition:background 0.15s}
-    tbody tr:hover{background:rgba(239,68,68,0.06) !important}
-    table{border-collapse:separate;border-spacing:0}
-    thead th{
-      background:linear-gradient(135deg,rgba(4,2,14,0.97),rgba(10,5,24,0.95)) !important;
-      border-bottom:1px solid rgba(239,68,68,0.18) !important;
-      font-size:0.68rem; letter-spacing:0.09em; text-transform:uppercase; color:#64748b !important;
-    }
-    #toastWrap > div{
-      animation:toastIn 0.38s cubic-bezier(0.34,1.56,0.64,1) both;
-      box-shadow:0 8px 30px rgba(0,0,0,0.5);
-    }
-    @keyframes toastIn{from{opacity:0;transform:translateX(55px) scale(0.88)}to{opacity:1;transform:translateX(0) scale(1)}}
-    /* Health stat cards */
-    .health-card {
-      background: linear-gradient(135deg,rgba(8,5,18,0.97),rgba(14,8,28,0.95)) !important;
+      background: rgba(8,2,18,0.86) !important;
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(239,68,68,0.16) !important;
-      transition: transform 0.25s, box-shadow 0.25s;
+      transition: border-color 0.35s, box-shadow 0.35s;
     }
-    .health-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(239,68,68,0.18); }
+    .bg-\[\#1E293B\]:hover {
+      border-color: rgba(239,68,68,0.34) !important;
+      box-shadow: 0 6px 50px rgba(239,68,68,0.12);
+    }
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: rgba(0,0,0,0.8); }
+    ::-webkit-scrollbar-thumb { background: linear-gradient(180deg,var(--r),var(--o)); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg,var(--o),var(--v)); }
+    /* PAGE ANIMATIONS */
+    .flex.min-h-screen { animation: pageIn .6s cubic-bezier(.22,1,.36,1) both; }
+    @keyframes pageIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    .tab-content:not(.hidden) { animation: fadeUp .35s cubic-bezier(.4,0,.2,1) both; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+    tbody tr { transition: background .15s; }
+    tbody tr:hover { background: rgba(239,68,68,0.08) !important; }
+    table { border-collapse: separate; border-spacing: 0; }
+    thead th {
+      background: rgba(5,1,12,0.98) !important;
+      border-bottom: 1px solid rgba(239,68,68,0.24) !important;
+      font-size: .68rem; letter-spacing: .09em; text-transform: uppercase; color: #4a3030 !important;
+    }
+    #toastWrap > div {
+      animation: toastIn .38s cubic-bezier(.34,1.56,.64,1) both;
+      box-shadow: 0 8px 34px rgba(0,0,0,0.62);
+    }
+    @keyframes toastIn { from{opacity:0;transform:translateX(55px) scale(.88)} to{opacity:1;transform:translateX(0) scale(1)} }
+    /* HEALTH CARDS */
+    .health-card {
+      background: rgba(8,2,18,0.90) !important;
+      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(239,68,68,0.22) !important;
+      transition: transform .28s, box-shadow .28s;
+    }
+    .health-card:hover { transform: translateY(-5px); box-shadow: 0 16px 42px rgba(239,68,68,0.28); }
     .health-val {
       background: linear-gradient(135deg,#fff,#fca5a5);
-      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
-    /* Log pre */
+    /* LOG VIEWER */
     #logPre {
-      background: linear-gradient(135deg,rgba(5,3,14,0.98),rgba(10,6,22,0.96)) !important;
-      border: 1px solid rgba(239,68,68,0.14) !important;
-      color: #94a3b8; font-family: "Cascadia Code","Consolas",monospace; font-size: 0.72rem;
+      background: rgba(4,1,10,0.98) !important;
+      border: 1px solid rgba(239,68,68,0.20) !important;
+      color: #6a7888; font-family: "Cascadia Code","Consolas",monospace; font-size: .72rem;
     }
-    /* Input focus */
-    input,select { transition: border-color 0.2s, box-shadow 0.2s; }
+    /* INPUT FOCUS */
+    input, select { transition: border-color .2s, box-shadow .2s; }
     input:focus, select:focus {
-      border-color: rgba(239,68,68,0.55) !important;
-      box-shadow: 0 0 0 3px rgba(239,68,68,0.12) !important;
-      outline: none;
+      border-color: rgba(239,68,68,0.68) !important;
+      box-shadow: 0 0 0 3px rgba(239,68,68,0.16) !important; outline: none;
     }
-    /* Modal */
+    /* MODALS */
     #addModal .bg-\[\#1E293B\], #resetModal .bg-\[\#1E293B\] {
-      box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(239,68,68,0.2);
+      box-shadow: 0 26px 75px rgba(0,0,0,0.78), 0 0 0 1px rgba(239,68,68,0.28);
     }
-    /* Responsive */
+    /* RESPONSIVE */
     @media(max-width:700px){
       .flex.min-h-screen{flex-direction:column}
       aside{width:100% !important;height:auto !important}
@@ -140,7 +144,7 @@
     }
   </style>
 </head>
-<body class="bg-[#060b18] text-[#F8FAFC]">
+<body class="bg-black text-[#F8FAFC]">
   <div id="toastWrap" class="fixed top-5 right-5 z-50 space-y-2"></div>
   <div class="flex min-h-screen">
     <aside class="w-[240px] flex flex-col" style="flex-shrink:0">
