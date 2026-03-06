@@ -14,6 +14,11 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "change-this-to-a-long-random-string")
+if SECRET_KEY == "change-this-to-a-long-random-string":
+    logger.critical(
+        "SECURITY WARNING: SECRET_KEY is using the insecure default value. "
+        "Set a strong random SECRET_KEY in your .env file before deploying."
+    )
 serializer = URLSafeTimedSerializer(SECRET_KEY)
 SESSION_AGE_SECONDS = 7 * 24 * 60 * 60
 

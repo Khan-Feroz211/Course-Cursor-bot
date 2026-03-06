@@ -26,6 +26,23 @@ def chat(request: Request, payload: ChatPayload):
     if not query:
         raise HTTPException(status_code=400, detail={"error": "Query is required", "detail": "empty_query"})
 
+    # Load last 3 conversation turns for multi-turn context
+    history: list[dict] = []
+    try:
+        conn = get_db()
+        hist_rows = conn.execute(
+            """
+            SELECT query_text, response_text FROM queries
+            WHERE user_id=? AND response_text IS NOT NULL AND response_text != ''
+            ORDER BY created_at DESC LIMIT 3
+            """,
+            (user["id"],),
+        ).fetchall()
+        conn.close()
+        history = [{"query": r["query_text"], "response": r["response_text"]} for r in reversed(hist_rows)]
+    except Exception:
+        logger.warning("Could not load conversation history for user=%s", user["username"])
+
     async def event_stream():
         # Ensure embedding model is loaded (auto-retry at request time)
         if not app_state.ensure_model():
@@ -38,15 +55,15 @@ def chat(request: Request, payload: ChatPayload):
         sources = []
         try:
             logger.info("Query received user=%s text=%s", user["username"], query[:60])
-            async for event in stream_answer(int(user["id"]), query, app_state.embedding_model):
+            async for event in stream_answer(int(user["id"]), query, app_state.embedding_model, history=history):
                 try:
                     if event.startswith("data: "):
-                        payload_obj = json.loads(event[6:].strip())
-                        etype = payload_obj.get("type")
+                        event_obj = json.loads(event[6:].strip())  # renamed from payload_obj to avoid shadowing
+                        etype = event_obj.get("type")
                         if etype == "token":
-                            answer_parts.append(payload_obj.get("content", ""))
+                            answer_parts.append(event_obj.get("content", ""))
                         elif etype == "sources":
-                            sources = payload_obj.get("content", []) or []
+                            sources = event_obj.get("content", []) or []
                 except Exception:
                     logger.debug("Could not parse stream payload line")
                 yield event

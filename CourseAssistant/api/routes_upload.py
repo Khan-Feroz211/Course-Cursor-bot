@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from pathlib import Path
 
@@ -13,11 +14,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 ALLOWED_EXTS = {"pdf", "docx", "pptx", "xlsx", "xls", "csv", "txt", "jpg", "jpeg", "png"}
+MAX_FILE_BYTES = 50 * 1024 * 1024  # 50 MB — protects RAM and disk on low-storage machine
 
 
 @router.post("/upload")
-def upload_file(request: Request, file: UploadFile = File(...)):
+async def upload_file(request: Request, file: UploadFile = File(...)):
     user = require_login(request)
+    # Guard: embedding model must be ready before we can index anything
+    if not app_state.ensure_model():
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "Search engine is still initialising. Please wait 30 seconds and try again.",
+                "detail": "model_not_ready",
+            },
+        )
     filename = file.filename or "uploaded_file"
     doc_id = None
     ext = filename.split(".")[-1].lower() if "." in filename else ""
@@ -25,14 +36,38 @@ def upload_file(request: Request, file: UploadFile = File(...)):
         logger.warning("File type not supported: %s", ext)
         raise HTTPException(status_code=400, detail={"error": "Unsupported file type", "detail": ext})
     try:
+        content = await file.read()  # async read — does not block event loop
+
+        # --- Storage guard ---
+        if len(content) > MAX_FILE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail={"error": f"File too large. Maximum allowed size is 50 MB.", "detail": "file_too_large"},
+            )
+
+        safe_name = Path(filename).name
+        size_kb = round(len(content) / 1024.0, 2)
+
+        # --- Duplicate detection ---
+        conn = get_db()
+        try:
+            existing = conn.execute(
+                "SELECT id FROM documents WHERE user_id=? AND filename=? AND status='indexed'",
+                (user["id"], safe_name),
+            ).fetchone()
+        finally:
+            conn.close()
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail={"error": f"'{safe_name}' is already indexed. Delete it first if you want to re-upload.", "detail": "duplicate_file"},
+            )
+
         user_dir = Path(f"data/users/{user['id']}")
         uploads_dir = user_dir / "uploads"
         uploads_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = Path(filename).name
         path = uploads_dir / safe_name
-        content = file.file.read()
         path.write_bytes(content)
-        size_kb = round(len(content) / 1024.0, 2)
 
         conn = get_db()
         try:
@@ -49,12 +84,15 @@ def upload_file(request: Request, file: UploadFile = File(...)):
             conn.close()
 
         logger.info("File upload start user=%s filename=%s", user["username"], safe_name)
-        pages = extract_text(path, ext)
-        chunks = chunk_pages(pages)
+
+        # Run CPU-heavy processing in thread pool — keeps event loop responsive
+        # so chat and other requests are not blocked during OCR / embedding
+        pages = await asyncio.to_thread(extract_text, path, ext)
+        chunks = await asyncio.to_thread(chunk_pages, pages)
         word_count = sum(len((p.get("text") or "").split()) for p in pages)
-        existing_index, existing_chunks = load_index(int(user["id"]))
+        _, existing_chunks = load_index(int(user["id"]))
         merged_chunks = (existing_chunks or []) + chunks
-        build_index(int(user["id"]), merged_chunks, app_state.embedding_model)
+        await asyncio.to_thread(build_index, int(user["id"]), merged_chunks, app_state.embedding_model)
 
         conn = get_db()
         try:

@@ -48,7 +48,7 @@ def get_analytics(request: Request):
         ).fetchone()["a"]
 
         q_rows = conn.execute(
-            "SELECT query_text, created_at, response_time_ms, sources FROM queries WHERE user_id=? ORDER BY created_at DESC",
+            "SELECT query_text, created_at, response_time_ms, sources FROM queries WHERE user_id=? ORDER BY created_at DESC LIMIT 500",
             (user["id"],),
         ).fetchall()
         d_rows = conn.execute(
