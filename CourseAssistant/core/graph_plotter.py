@@ -17,6 +17,13 @@ load_dotenv()
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+AI_BACKEND = os.getenv("AI_BACKEND", "ollama").lower()
+
+
+def _use_groq() -> bool:
+    return AI_BACKEND == "groq" and bool(GROQ_API_KEY)
 
 
 def _extract_json(text: str) -> dict:
@@ -28,6 +35,42 @@ def _extract_json(text: str) -> dict:
     if s.endswith("```"):
         s = s[:-3].strip()
     return json.loads(s)
+
+
+async def _call_ai(system: str, user: str) -> str:
+    """Call Groq (fast) or Ollama depending on AI_BACKEND setting."""
+    if _use_groq():
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0)
+        ) as client:
+            res = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "model": GROQ_MODEL,
+                    "stream": False,
+                    "max_tokens": 512,
+                    "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                },
+            )
+        if res.status_code != 200:
+            raise RuntimeError(f"Groq API error {res.status_code}")
+        return res.json()["choices"][0]["message"]["content"]
+    else:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=10.0, read=45.0, write=10.0, pool=10.0)
+        ) as client:
+            res = await client.post(
+                f"{OLLAMA_URL}/api/chat",
+                json={
+                    "model": OLLAMA_MODEL,
+                    "stream": False,
+                    "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                },
+            )
+        if res.status_code != 200:
+            raise RuntimeError("Ollama model unavailable")
+        return res.json().get("message", {}).get("content", "")
 
 
 async def generate_chart(prompt, chart_type, title, xlabel, ylabel) -> dict:
@@ -43,19 +86,8 @@ async def generate_chart(prompt, chart_type, title, xlabel, ylabel) -> dict:
             f"xlabel: {xlabel}\n"
             f"ylabel: {ylabel}"
         )
-        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=600.0, write=10.0, pool=10.0)) as client:
-            res = await client.post(
-                f"{OLLAMA_URL}/api/chat",
-                json={
-                    "model": OLLAMA_MODEL,
-                    "stream": False,
-                    "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-                },
-            )
-        if res.status_code != 200:
-            return {"error": "AI model is unavailable"}
-        data = res.json()
-        raw = data.get("message", {}).get("content", "")
+
+        raw = await _call_ai(system, user)
         parsed = _extract_json(raw)
 
         ctype = (parsed.get("chart_type") or chart_type or "line").lower()
@@ -111,8 +143,8 @@ async def generate_chart(prompt, chart_type, title, xlabel, ylabel) -> dict:
         img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
         return {"image": img_b64, "title": ptitle}
     except (httpx.ReadTimeout, httpx.TimeoutException):
-        logger.warning("Graph generation timed out — Ollama too slow")
-        return {"error": "AI is taking too long to respond. The model may be warming up — please try again in 30 seconds."}
+        logger.warning("Graph generation timed out")
+        return {"error": "AI took too long to respond. Please try a simpler prompt or try again shortly."}
     except Exception as exc:
         logger.exception("Graph generation error")
         return {"error": str(exc)}
